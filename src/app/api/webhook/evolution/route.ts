@@ -89,18 +89,25 @@ async function handleOne(it: any) {
 
   // Quando o WhatsApp entrega a conversa em formato @lid (Linked Identifier),
   // o remoteJid é um ID sintético. O número real vem em senderPn/participantPn.
-  const realJid: string = remoteJid.endsWith("@lid")
-    ? (key?.senderPn || key?.participantPn || it?.senderPn || "")
-    : remoteJid;
-  if (!realJid) {
-    console.warn("[webhook] @lid sem senderPn — descartando:", { remoteJid, keys: Object.keys(key ?? {}) });
-    return;
+  let realJid: string = remoteJid;
+  if (remoteJid.endsWith("@lid")) {
+    const resolved = key?.senderPn || key?.participantPn || it?.senderPn || it?.sender || it?.participant;
+    if (resolved) {
+      realJid = resolved;
+    } else {
+      // Evolution v2.2.1 às vezes não expõe o número real — logar payload pra debug
+      // e seguir com o @lid como identificador (Evolution roteia o send via LID).
+      console.warn("[webhook] @lid não resolvido, usando LID como sendTarget. Payload:", JSON.stringify(it).slice(0, 2000));
+    }
   }
+  // Pra @lid sem senderPn, "phone" fica sendo o próprio id numérico do LID — serve como chave única.
   const phone = jidToPhone(realJid);
-  if (!phone || phone.length < 10) {
+  if (!phone || phone.length < 8) {
     console.warn("[webhook] phone inválido:", { remoteJid, realJid, phone });
     return;
   }
+  // Alvo do send: se LID, mandamos o JID completo; senão, só o número.
+  const sendTarget = realJid.endsWith("@lid") ? realJid : phone;
   const lead = await upsertLead(phone, pushName);
 
   await appendMessage({
@@ -118,7 +125,7 @@ async function handleOne(it: any) {
   }
 
   // Indicador "digitando…"
-  sendPresence(phone, "composing").catch(() => {});
+  sendPresence(sendTarget, "composing").catch(() => {});
 
   const { reply, needsHandoff, qualification } = await runSDR({
     lead,
@@ -126,7 +133,7 @@ async function handleOne(it: any) {
   });
 
   if (reply) {
-    await sendText({ to: phone, text: reply, delayMs: 900 });
+    await sendText({ to: sendTarget, text: reply, delayMs: 900 });
     await appendMessage({
       leadId: lead.id,
       direction: "outbound",
