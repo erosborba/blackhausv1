@@ -87,7 +87,20 @@ async function handleOne(it: any) {
   const text = extractText(message?.message ?? message);
   if (!text || text.trim().length === 0) return;
 
-  const phone = jidToPhone(remoteJid);
+  // Quando o WhatsApp entrega a conversa em formato @lid (Linked Identifier),
+  // o remoteJid é um ID sintético. O número real vem em senderPn/participantPn.
+  const realJid: string = remoteJid.endsWith("@lid")
+    ? (key?.senderPn || key?.participantPn || it?.senderPn || "")
+    : remoteJid;
+  if (!realJid) {
+    console.warn("[webhook] @lid sem senderPn — descartando:", { remoteJid, keys: Object.keys(key ?? {}) });
+    return;
+  }
+  const phone = jidToPhone(realJid);
+  if (!phone || phone.length < 10) {
+    console.warn("[webhook] phone inválido:", { remoteJid, realJid, phone });
+    return;
+  }
   const lead = await upsertLead(phone, pushName);
 
   await appendMessage({
