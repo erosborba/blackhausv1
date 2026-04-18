@@ -19,11 +19,14 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("apikey") ?? req.headers.get("x-webhook-secret");
-  if (env.EVOLUTION_WEBHOOK_SECRET && secretHeader !== env.EVOLUTION_WEBHOOK_SECRET) {
-    // Em dev é comum não ter ainda, então só bloqueamos em prod.
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    }
+  // Se o Evolution mandar o header, exige match. Se não mandar
+  // (WEBHOOK_REQUEST_HEADERS nem sempre é honrado em v2.2.3), aceita.
+  if (
+    env.EVOLUTION_WEBHOOK_SECRET &&
+    secretHeader &&
+    secretHeader !== env.EVOLUTION_WEBHOOK_SECRET
+  ) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   let payload: any;
