@@ -19,13 +19,10 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("apikey") ?? req.headers.get("x-webhook-secret");
-  // Se o Evolution mandar o header, exige match. Se não mandar
-  // (WEBHOOK_REQUEST_HEADERS nem sempre é honrado em v2.2.3), aceita.
-  if (
-    env.EVOLUTION_WEBHOOK_SECRET &&
-    secretHeader &&
-    secretHeader !== env.EVOLUTION_WEBHOOK_SECRET
-  ) {
+  // Evolution v2.2.3 ignora WEBHOOK_REQUEST_HEADERS em alguns builds e manda o
+  // AUTHENTICATION_API_KEY no header `apikey`. Aceita match com qualquer um dos dois.
+  const validSecrets = [env.EVOLUTION_WEBHOOK_SECRET, env.EVOLUTION_API_KEY].filter(Boolean);
+  if (secretHeader && !validSecrets.includes(secretHeader)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
