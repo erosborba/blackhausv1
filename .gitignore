@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vercel
+.turbo
+next-env.d.ts
+evolution-data
+postgres-data
+.claude/
+tsconfig.tsbuildinfo
+supabase/.temp/
+supabase/.branches/
