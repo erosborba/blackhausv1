@@ -127,8 +127,19 @@ async function handleOne(it: any) {
   }
   const sendTarget = realJid.endsWith("@lid") ? realJid : phone;
 
+  const agentHit = await isAgentPhone(phone);
+  console.log("[webhook] inbound", {
+    phone,
+    remoteJid,
+    realJid,
+    isAgent: agentHit,
+    hasQuote: Boolean(quotedText),
+    quotedPreview: quotedText?.slice(0, 80) ?? null,
+    textPreview: text.slice(0, 80),
+  });
+
   // ── Rota 1: corretor ──
-  if (await isAgentPhone(phone)) {
+  if (agentHit) {
     await handleAgentMessage({ phone, text, quotedText, sendTarget });
     return;
   }
@@ -145,26 +156,26 @@ async function handleOne(it: any) {
     evolutionEvent: it,
   });
 
-  // Ponte ativa: repassa pro corretor, não roda LLM.
-  if (lead.bridge_active && lead.assigned_agent_id) {
-    const agent = await supabaseAdmin()
+  // Ponte ativa OU corretor já notificado (aguardando): repassa pro corretor.
+  if (lead.assigned_agent_id && (lead.bridge_active || lead.human_takeover)) {
+    const agentRow = await supabaseAdmin()
       .from("agents")
       .select("*")
       .eq("id", lead.assigned_agent_id)
       .maybeSingle();
-    if (agent.data) {
+    if (agentRow.data) {
+      const prefix = lead.bridge_active ? "" : "⏳ (aguardando você abrir a ponte)\n";
       await forwardToAgent({
-        agent: agent.data as any,
+        agent: agentRow.data as any,
         leadId: lead.id,
         leadName: lead.full_name || lead.push_name || lead.phone,
-        text,
+        text: prefix + text,
       });
       return;
     }
   }
 
   if (lead.human_takeover) {
-    // Pausado mas sem ponte — corretor responde pelo admin.
     return;
   }
 
@@ -236,6 +247,14 @@ async function handleAgentMessage(args: {
   sendTarget: string;
 }) {
   const agent = await getAgentByPhone(args.phone);
+  console.log("[agent-msg] start", {
+    phone: args.phone,
+    agentFound: Boolean(agent),
+    agentId: agent?.id,
+    currentLeadId: agent?.current_lead_id ?? null,
+    hasQuote: Boolean(args.quotedText),
+    text: args.text.slice(0, 120),
+  });
   if (!agent) return;
 
   const t = args.text.trim();
@@ -280,6 +299,7 @@ async function handleAgentMessage(args: {
     text: t,
     quotedText: args.quotedText,
   });
+  console.log("[agent-msg] resolve", { targetLeadId, quotedText: args.quotedText?.slice(0, 160) });
 
   if (!targetLeadId) {
     await sendText({

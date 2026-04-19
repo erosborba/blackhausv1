@@ -140,25 +140,41 @@ async function notifyAgentAndSchedule(args: {
     appBaseUrl,
   });
 
+  console.log("[handoff] notify", {
+    agentPhone: args.agent.phone,
+    agentId: args.agent.id,
+    leadId: args.leadId,
+    attempt: args.attempts,
+  });
+
   try {
     await sendText({ to: args.agent.phone, text, delayMs: 0 });
   } catch (e) {
     console.error("[handoff] falha ao enviar WhatsApp pro corretor", args.agent.phone, e);
   }
 
-  await updateLead(args.leadId, {
-    assigned_agent_id: args.agent.id,
-    handoff_notified_at: new Date().toISOString(),
-    handoff_attempts: args.attempts,
-    bridge_active: false,
-  } as Record<string, unknown>);
+  try {
+    await updateLead(args.leadId, {
+      assigned_agent_id: args.agent.id,
+      handoff_notified_at: new Date().toISOString(),
+      handoff_attempts: args.attempts,
+      bridge_active: false,
+    } as Record<string, unknown>);
+  } catch (e) {
+    console.error("[handoff] updateLead (notify) FAILED:", e instanceof Error ? e.message : e);
+  }
 
-  await markAssigned(args.agent.id, args.leadId);
+  try {
+    await markAssigned(args.agent.id, args.leadId);
+  } catch (e) {
+    console.error("[handoff] markAssigned FAILED:", e);
+  }
 
   scheduleEscalation({
     leadId: args.leadId,
     onEscalate: escalateHandoff,
   });
+  console.log("[handoff] escalation scheduled for", args.leadId);
 }
 
 /** Corretor engajou (respondeu quote ou abriu sessão). Cancela timer e ativa ponte. */
@@ -227,14 +243,15 @@ export async function resolveTargetLead(args: {
   quotedText: string | null;
 }): Promise<string | null> {
   const fromQuote = parseLeadIdFromQuote(args.quotedText);
+  console.log("[resolve] quote parse", { fromQuote, quotedText: args.quotedText?.slice(0, 160) ?? null });
   if (fromQuote) {
-    // Pode ser UUID completo ou prefixo — valida.
     const sb = supabaseAdmin();
-    const { data } = await sb
+    const { data, error } = await sb
       .from("leads")
       .select("id")
       .eq("id", fromQuote)
       .maybeSingle();
+    if (error) console.error("[resolve] lookup by quote failed:", error.message);
     if (data) return data.id as string;
   }
   const cmd = args.text.match(/^\/lead\s+([0-9a-f-]{8,36})/i);
@@ -243,9 +260,24 @@ export async function resolveTargetLead(args: {
     const { data } = await sb.from("leads").select("id").eq("id", cmd[1]).maybeSingle();
     if (data) return data.id as string;
   }
-  if (args.agent.current_lead_id) {
-    const fresh = await getAgentById(args.agent.id);
-    return fresh?.current_lead_id ?? null;
+  // Fallback 1: agent já tem lead atual gravado
+  const fresh = await getAgentById(args.agent.id);
+  if (fresh?.current_lead_id) {
+    console.log("[resolve] using agent.current_lead_id", fresh.current_lead_id);
+    return fresh.current_lead_id;
+  }
+  // Fallback 2: último lead atribuído a este corretor aguardando ou em ponte
+  const sb = supabaseAdmin();
+  const { data: pending } = await sb
+    .from("leads")
+    .select("id, handoff_notified_at")
+    .eq("assigned_agent_id", args.agent.id)
+    .order("handoff_notified_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (pending) {
+    console.log("[resolve] using last assigned", pending.id);
+    return pending.id as string;
   }
   return null;
 }
