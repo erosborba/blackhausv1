@@ -35,7 +35,7 @@ export function parseLeadRefFromQuote(quotedText: string | null | undefined): st
 }
 
 /** Resolve uma ref (telefone ou UUID) pra lead.id. */
-async function leadIdFromRef(ref: string): Promise<string | null> {
+export async function leadIdFromRef(ref: string): Promise<string | null> {
   const sb = supabaseAdmin();
   if (/^\d{10,13}$/.test(ref)) {
     const variants = brPhoneVariants(ref);

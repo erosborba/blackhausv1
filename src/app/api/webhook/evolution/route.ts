@@ -11,10 +11,22 @@ import {
   forwardToAgent,
   forwardToLead,
   initiateHandoff,
+  leadIdFromRef,
   openBridge,
-  resolveTargetLead,
+  parseLeadRefFromQuote,
 } from "@/lib/handoff";
+import { brokerCopilot } from "@/lib/copilot";
 import { supabaseAdmin } from "@/lib/supabase";
+
+const HELP_TEXT = `👋 Comandos:
+• Responder (quote) uma notificação/mensagem minha → eu repasso pro lead.
+• /lead <telefone> <mensagem> — envia pro lead sem precisar de quote.
+• /lead <telefone> — abre sessão (sem enviar nada ainda).
+• /status — lista seus leads atribuídos.
+• /fim — encerra a ponte aberta.
+• /help — este menu.
+
+Texto solto (sem quote, sem comando) fica comigo no modo copiloto: te ajudo com contexto, sugestões, resumos dos seus leads.`;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -252,12 +264,12 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
 }
 
 /**
- * Mensagem de um corretor. Comandos:
- *  - `/fim` ou `/sair`: fecha a ponte (lead volta a esperar resposta manual).
- *  - `/status`: lista leads pendentes/ativos do corretor.
- *  - `/lead <id>` (prefix 8+): abre sessão com esse lead.
- *  - Quote de notificação (ou mensagem repassada): Bia repassa texto ao lead.
- *  - Texto solto: usa sessão aberta, senão orienta.
+ * Mensagem de um corretor. Defaults invertidos:
+ *  - Quote de notificação/mensagem minha → repasso texto pro lead (ponte abre).
+ *  - `/lead <telefone> <mensagem>` → envio pro lead sem precisar de quote.
+ *  - `/lead <telefone>` (sem texto) → abre sessão silenciosa.
+ *  - `/fim`, `/status`, `/help` → comandos locais.
+ *  - Texto solto (sem quote, sem comando) → Bia copiloto (não vai pro lead).
  */
 async function handleAgentMessage(args: {
   phone: string;
@@ -278,10 +290,10 @@ async function handleAgentMessage(args: {
 
   const t = args.text.trim();
 
+  // ── Comandos locais ──
   if (/^\/(fim|sair)\b/i.test(t)) {
     let targetLeadId: string | null = agent.current_lead_id;
     if (!targetLeadId) {
-      // Sincroniza: procura ponte aberta atribuída a este corretor.
       const sb = supabaseAdmin();
       const { data } = await sb
         .from("leads")
@@ -305,6 +317,11 @@ async function handleAgentMessage(args: {
     return;
   }
 
+  if (/^\/help\b/i.test(t)) {
+    await sendText({ to: agent.phone, text: HELP_TEXT, delayMs: 0 });
+    return;
+  }
+
   if (/^\/status\b/i.test(t)) {
     const sb = supabaseAdmin();
     const { data } = await sb
@@ -325,66 +342,89 @@ async function handleAgentMessage(args: {
     await sendText({
       to: agent.phone,
       text: lines.length > 0
-        ? `${lines.join("\n")}\n\nReabrir: /lead <telefone>`
+        ? `${lines.join("\n")}\n\nEnviar mensagem: /lead <telefone> <mensagem>`
         : "Sem leads atribuídos.",
       delayMs: 0,
     });
     return;
   }
 
-  const targetLeadId = await resolveTargetLead({
-    agent,
-    text: t,
-    quotedText: args.quotedText,
-  });
-  console.log("[agent-msg] resolve", { targetLeadId, quotedText: args.quotedText?.slice(0, 160) });
+  // ── Referência explícita a lead? (quote OU /lead <ref>) ──
+  const fromQuote = parseLeadRefFromQuote(args.quotedText);
+  const cmdMatch = t.match(/^\/lead\s+(\S+)/i);
+  const ref = fromQuote ?? cmdMatch?.[1] ?? null;
 
-  if (!targetLeadId) {
-    await sendText({
-      to: agent.phone,
-      text: `Não entendi qual lead. Opções:
-• Use "Responder" numa notificação minha (quote).
-• Ou envie: /lead <telefone>  (ex: /lead 5541995298060)
-• Ver pendentes: /status`,
-      delayMs: 0,
+  if (ref) {
+    const leadId = await leadIdFromRef(ref);
+    console.log("[agent-msg] resolve ref", { ref, leadId, viaQuote: Boolean(fromQuote) });
+    if (!leadId) {
+      await sendText({
+        to: agent.phone,
+        text: `Lead "${ref}" não encontrado. Use /status pra ver atribuídos.`,
+        delayMs: 0,
+      });
+      return;
+    }
+    const sb = supabaseAdmin();
+    const { data: lead } = await sb
+      .from("leads")
+      .select("id, phone")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (!lead) {
+      await sendText({ to: agent.phone, text: "Lead não encontrado.", delayMs: 0 });
+      return;
+    }
+
+    await openBridge(lead.id, agent.id);
+
+    // `/lead <ref>` sem texto (e sem quote) → só abre sessão.
+    const cmdOnly = !fromQuote && /^\/lead\s+\S+\s*$/i.test(t);
+    if (cmdOnly) {
+      await sendText({
+        to: agent.phone,
+        text: `✅ Ponte aberta. Pra enviar ao lead, responda esta mensagem (quote) ou use /lead ${lead.phone} <texto>. Texto solto fica comigo (copiloto).`,
+        delayMs: 0,
+      });
+      return;
+    }
+
+    // Remove prefixo do comando se veio via /lead <ref> texto.
+    const cleanText = t.replace(/^\/lead\s+\S+\s*/i, "").trim();
+    if (!cleanText) {
+      await sendText({
+        to: agent.phone,
+        text: "Mande o texto que quer enviar pro lead.",
+        delayMs: 0,
+      });
+      return;
+    }
+
+    await forwardToLead({
+      leadId: lead.id,
+      text: cleanText,
+      sendTarget: lead.phone,
     });
     return;
   }
 
-  // Abre/confirma ponte e repassa.
-  const sb = supabaseAdmin();
-  const { data: lead } = await sb
-    .from("leads")
-    .select("id, phone")
-    .eq("id", targetLeadId)
-    .maybeSingle();
-  if (!lead) {
-    await sendText({ to: agent.phone, text: "Lead não encontrado.", delayMs: 0 });
-    return;
-  }
-
-  await openBridge(lead.id, agent.id);
-
-  // Comando `/lead <ref>` (sem texto extra) só abre sessão.
-  const cmdOnly = t.match(/^\/lead\s+\S+\s*$/i);
-  if (cmdOnly) {
+  // ── Texto solto → Bia copiloto ──
+  console.log("[agent-msg] copilot", { agentId: agent.id, textPreview: t.slice(0, 80) });
+  try {
+    const reply = await brokerCopilot({ agent, text: t });
     await sendText({
       to: agent.phone,
-      text: `✅ Sessão aberta. Próximas mensagens vão pro lead. Use /fim pra encerrar.`,
+      text: reply || "Hmm, não consegui formular. Tenta de novo? /help pra comandos.",
       delayMs: 0,
     });
-    return;
+  } catch (e) {
+    console.error("[agent-msg] copilot failed:", e instanceof Error ? e.message : e);
+    await sendText({
+      to: agent.phone,
+      text: "Deu ruim aqui no copiloto. Tenta de novo em instantes, ou use /help pra comandos.",
+      delayMs: 0,
+    });
   }
-
-  // `/lead <ref> texto`: remove só o cabeçalho do comando.
-  const cleanText = t.replace(/^\/lead\s+\S+\s*/i, "").trim();
-  if (!cleanText) return;
-
-  await forwardToLead({
-    leadId: lead.id,
-    text: cleanText,
-    sendTarget: lead.phone,
-  });
 }
 
 export function GET() {
