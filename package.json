@@ -11,7 +11,11 @@
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "tunnel": "ngrok http --url=repackage-iron-shanty.ngrok-free.dev 3000",
+    "webhook:dev": "node scripts/set-webhook.mjs dev",
+    "webhook:prod": "node scripts/set-webhook.mjs prod",
+    "webhook:status": "node scripts/set-webhook.mjs status"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

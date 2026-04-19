@@ -69,7 +69,15 @@ export async function appendMessage(args: {
     evolution_message_id: args.evolutionMessageId,
     evolution_event: args.evolutionEvent,
   });
-  if (error) throw error;
+  if (error) {
+    // 23505 = unique_violation no índice de evolution_message_id.
+    // Significa que outro processo já gravou essa mensagem — idempotente, ok.
+    if ((error as { code?: string }).code === "23505") {
+      console.log("[leads] appendMessage: dedup por unique index", args.evolutionMessageId);
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function recentMessages(leadId: string, limit = 20) {

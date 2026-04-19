@@ -95,12 +95,27 @@ function extractText(message: any): string {
   );
 }
 
-/** Texto da mensagem citada (quando o usuário usa "Responder" no WhatsApp). */
-function extractQuotedText(message: any): string | null {
-  const ctx = message?.extendedTextMessage?.contextInfo ?? message?.contextInfo;
-  const quoted = ctx?.quotedMessage;
-  if (!quoted) return null;
-  return extractText(quoted) || null;
+/**
+ * Texto da mensagem citada (quando o usuário usa "Responder" no WhatsApp).
+ *
+ * O shape muda por versão de Evolution/Baileys. No nosso (Evolution v2.3.7 +
+ * WHATSAPP-BAILEYS), o quote mais comum vem em `item.contextInfo.quotedMessage`
+ * (root do item). Em outras versões vai pra `message.extendedTextMessage.contextInfo`.
+ * A gente tenta todos os locais conhecidos — primeiro que bater ganha.
+ */
+function extractQuotedText(message: any, item?: any): string | null {
+  const candidates = [
+    item?.contextInfo, // Evolution v2 com conversation + contextInfo no root do item
+    message?.extendedTextMessage?.contextInfo, // shape "clássico" do Baileys
+    message?.contextInfo,
+    message?.messageContextInfo?.quotedMessage ? message?.messageContextInfo : null,
+    item?.message?.contextInfo,
+  ];
+  for (const ctx of candidates) {
+    const quoted = ctx?.quotedMessage;
+    if (quoted) return extractText(quoted) || null;
+  }
+  return null;
 }
 
 async function handleOne(it: any) {
@@ -114,10 +129,27 @@ async function handleOne(it: any) {
   if (fromMe || !remoteJid) return;
   if (remoteJid.endsWith("@g.us")) return;
 
+  // Idempotência: se já processamos esse evolution_message_id, ignora.
+  // Protege contra webhook firando em dobro (ex.: global + per-instance no Evolution,
+  // retries da fila, ou dois hosts respondendo simultaneamente durante dev).
+  if (messageId) {
+    const sb = supabaseAdmin();
+    const { data: existing } = await sb
+      .from("messages")
+      .select("id")
+      .eq("evolution_message_id", messageId)
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      console.log("[webhook] dedup: messageId já processado, ignorando", { messageId });
+      return;
+    }
+  }
+
   const innerMessage = message?.message ?? message;
   const text = extractText(innerMessage);
   if (!text || text.trim().length === 0) return;
-  const quotedText = extractQuotedText(innerMessage);
+  const quotedText = extractQuotedText(innerMessage, it);
 
   // Resolve @lid → JID real.
   let realJid: string = remoteJid;
@@ -152,19 +184,6 @@ async function handleOne(it: any) {
 
   // ── Rota 1: corretor ──
   if (agentHit) {
-    // Dump da estrutura da mensagem pra debug de quote (pode sumir depois).
-    try {
-      console.log(
-        "[webhook] agent raw message keys:",
-        innerMessage ? Object.keys(innerMessage) : null,
-        "contextInfo?",
-        Boolean(
-          innerMessage?.extendedTextMessage?.contextInfo ?? innerMessage?.contextInfo,
-        ),
-      );
-    } catch {
-      /* ignora */
-    }
     await handleAgentMessage({ phone, text, quotedText, sendTarget });
     return;
   }
