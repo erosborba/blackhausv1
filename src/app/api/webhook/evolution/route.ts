@@ -408,6 +408,28 @@ async function handleAgentMessage(args: {
       return;
     }
 
+    // Fluxo de aprovação de draft: quote foi de uma mensagem DRAFT da Bia.
+    const draftBody = args.quotedText ? parseDraftBody(args.quotedText) : null;
+    if (draftBody) {
+      const isApproval = APPROVAL_PATTERN.test(t);
+      const finalText = isApproval ? draftBody : t;
+      console.log("[agent-msg] draft approval", {
+        isApproval,
+        finalTextPreview: finalText.slice(0, 120),
+      });
+      await forwardToLead({
+        leadId: lead.id,
+        text: finalText,
+        sendTarget: lead.phone,
+      });
+      await sendText({
+        to: agent.phone,
+        text: isApproval ? "✅ Draft aprovado e enviado." : "✅ Sua edição foi enviada.",
+        delayMs: 300,
+      });
+      return;
+    }
+
     // Remove prefixo do comando se veio via /lead <ref> texto.
     const cleanText = t.replace(/^\/lead\s+\S+\s*/i, "").trim();
     if (!cleanText) {
@@ -428,14 +450,32 @@ async function handleAgentMessage(args: {
   }
 
   // ── Texto solto → Bia copiloto ──
-  console.log("[agent-msg] copilot", { agentId: agent.id, textPreview: t.slice(0, 80) });
+  console.log("[agent-msg] copilot → question", { agentId: agent.id, question: t });
   try {
-    const reply = await brokerCopilot({ agent, text: t });
+    const { reply, draft } = await brokerCopilot({ agent, text: t });
+    console.log("[agent-msg] copilot → reply", {
+      agentId: agent.id,
+      reply,
+      hasDraft: Boolean(draft),
+    });
     await sendText({
       to: agent.phone,
       text: reply || "Hmm, não consegui formular. Tenta de novo? /help pra comandos.",
       delayMs: 0,
     });
+    if (draft) {
+      // Mensagem separada, SÓ o texto do draft (segura+copia limpinho no WhatsApp).
+      // Header e footer tão fora do texto principal pra não poluir no copy/paste.
+      const confBadge =
+        draft.confidence === "alta" ? "🟢" : draft.confidence === "media" ? "🟡" : "🔴";
+      const draftMsg = `${DRAFT_MARKER} pro lead ${draft.leadPhone} · confiança ${confBadge} ${draft.confidence}
+Responda 👍 pra eu enviar como está, ou responda com a versão editada.
+
+${draft.text}
+
+lead: ${draft.leadPhone}`;
+      await sendText({ to: agent.phone, text: draftMsg, delayMs: 800 });
+    }
   } catch (e) {
     console.error("[agent-msg] copilot failed:", e instanceof Error ? e.message : e);
     await sendText({
@@ -444,6 +484,26 @@ async function handleAgentMessage(args: {
       delayMs: 0,
     });
   }
+}
+
+// Marker no início da mensagem de draft. Quando o corretor fizer quote dela,
+// a gente detecta e roda o fluxo de aprovação.
+const DRAFT_MARKER = "📝 [DRAFT]";
+
+const APPROVAL_PATTERN = /^(\s*(👍|👌|ok|okay|ok!|aprovo|aprovado|aprova|manda|envia|envie|vai|go|beleza|blz|\+1)\s*\.?\s*)$/i;
+
+/** Extrai o corpo (texto proposto) de uma mensagem de draft, dado o quote dela. */
+function parseDraftBody(quotedText: string): string | null {
+  if (!quotedText.startsWith(DRAFT_MARKER)) return null;
+  // Corpo fica entre a linha "Responda 👍 ..." e o footer "lead: XXXX".
+  const lines = quotedText.split("\n");
+  const instructionIdx = lines.findIndex((l) => l.trim().startsWith("Responda 👍"));
+  const footerIdx = lines.findIndex((l) => /^lead:\s*\d+/i.test(l.trim()));
+  if (instructionIdx === -1 || footerIdx === -1 || footerIdx <= instructionIdx) return null;
+  return lines
+    .slice(instructionIdx + 1, footerIdx)
+    .join("\n")
+    .trim();
 }
 
 export function GET() {

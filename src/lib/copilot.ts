@@ -35,11 +35,16 @@ Você tem TOOLS. Use-as sempre que precisar de informação concreta — nunca i
   • buscar_empreendimentos_filtro — filtra por cidade/bairros/preço máx. Use quando tiver critério claro.
   • buscar_empreendimentos_semantico — busca aberta em linguagem natural (diferenciais, estilo, lazer, etc).
   • ver_lead — puxa qualificação + brief + últimas mensagens de QUALQUER lead por telefone (útil quando o corretor pergunta sobre lead que não está em foco).
+  • propor_resposta — use quando o corretor pedir pra você redigir/sugerir uma mensagem pro cliente. Você registra o draft e o sistema entrega numa mensagem separada pro corretor (pra ele copiar limpinho ou aprovar). NÃO inclua o texto do draft no seu texto de resposta depois de chamar essa tool — só comente brevemente o que você mandou (ex.: "Mandei um draft pro João separado aqui embaixo 👇").
 
-Se o corretor pedir "responde pra ele X" ou "manda Y pro lead", LEMBRE que pra enviar ao cliente ele precisa:
-  • Usar "Responder" (quote) numa mensagem do lead/notificação; OU
-  • Digitar: /lead <telefone> <mensagem>
-(você pode redigir o texto proposto, mas o envio fica por conta do corretor.)
+Quando usar propor_resposta:
+  • Corretor pediu "redige pra ele", "sugere resposta", "manda um texto", "responde X".
+  • Você vai propor uma mensagem pronta (não só orientar).
+  • Confiança: "alta" = tenho todos os dados necessários; "media" = faltam detalhes mas o gist tá certo; "baixa" = falta informação-chave, está mais como placeholder.
+
+Se o corretor pedir algo tipo "manda pro lead X" sem você ter redigido draft antes, LEMBRE:
+  • Pra enviar no automático ele usa: /lead <telefone> <mensagem>
+  • Ou respondendo (quote) o draft que você acabou de propor com 👍 (aprova como está) ou com a versão editada.
 
 Comandos que o corretor pode usar:
   /status — lista leads atribuídos
@@ -104,7 +109,37 @@ const TOOLS: ToolSchema[] = [
       required: ["telefone"],
     },
   },
+  {
+    name: "propor_resposta",
+    description:
+      "Registra um draft de mensagem pro lead. O sistema envia o draft numa mensagem separada pro corretor poder copiar/aprovar limpo no WhatsApp. NÃO reescreva o texto do draft no seu output depois de chamar essa tool — só comente brevemente (1 frase). O corretor aprova respondendo 👍 ao draft, ou envia uma versão editada.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lead_telefone: {
+          type: "string",
+          description: "Telefone do lead pra quem o draft é destinado (ex: 5541995298060).",
+        },
+        texto: {
+          type: "string",
+          description: "Texto proposto, pronto pra enviar ao lead. Tom igual ao da Bia (pt-BR, informal profissional, sem markdown).",
+        },
+        confianca: {
+          type: "string",
+          enum: ["alta", "media", "baixa"],
+          description: "Auto-avaliação de quanto você tem certeza do draft: alta (todos dados presentes), media (gist ok, falta detalhe), baixa (placeholder, precisa edição).",
+        },
+      },
+      required: ["lead_telefone", "texto", "confianca"],
+    },
+  },
 ];
+
+export type DraftProposal = {
+  leadPhone: string;
+  text: string;
+  confidence: "alta" | "media" | "baixa";
+};
 
 async function runTool(name: string, input: Record<string, unknown>): Promise<string> {
   try {
@@ -175,7 +210,7 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
 export async function brokerCopilot(args: {
   agent: Agent;
   text: string;
-}): Promise<string> {
+}): Promise<{ reply: string; draft?: DraftProposal }> {
   const sb = supabaseAdmin();
 
   // Contexto 1: leads atribuídos ao corretor (top 8 recentes).
@@ -251,6 +286,9 @@ ${leadsList}${focusedBlock}`;
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: args.text }];
 
+  // Captura o último draft proposto (se a Bia chamar propor_resposta).
+  let capturedDraft: DraftProposal | undefined;
+
   // Loop de tool use. Cap em 5 iterações pra evitar runaway.
   const MAX_TURNS = 5;
   for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -273,15 +311,15 @@ ${leadsList}${focusedBlock}`;
         inputTokens: resp.usage?.input_tokens,
         outputTokens: resp.usage?.output_tokens,
         reply: final,
+        hasDraft: Boolean(capturedDraft),
       });
-      return final;
+      return { reply: final, draft: capturedDraft };
     }
 
     // Anexa a resposta do assistant (com os tool_use blocks) e processa as tools.
     messages.push({ role: "assistant", content: resp.content });
 
-    // Captura qualquer texto intermediário que a Bia soltou junto com o tool_use
-    // (ex: "Deixa eu consultar..." antes da tool). Útil pra ver o raciocínio.
+    // Captura qualquer texto intermediário que a Bia soltou junto com o tool_use.
     const interimText = resp.content
       .filter((b) => b.type === "text")
       .map((b) => (b.type === "text" ? b.text : ""))
@@ -295,6 +333,38 @@ ${leadsList}${focusedBlock}`;
     for (const block of resp.content) {
       if (block.type === "tool_use") {
         console.log("[copilot] tool_use", { name: block.name, input: block.input });
+
+        // propor_resposta é meta-tool: capturamos o draft e devolvemos ack.
+        if (block.name === "propor_resposta") {
+          const input = block.input as {
+            lead_telefone?: string;
+            texto?: string;
+            confianca?: DraftProposal["confidence"];
+          };
+          if (input.lead_telefone && input.texto && input.confianca) {
+            capturedDraft = {
+              leadPhone: String(input.lead_telefone).replace(/\D/g, ""),
+              text: String(input.texto),
+              confidence: input.confianca,
+            };
+            console.log("[copilot] draft captured", capturedDraft);
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content:
+                "Draft registrado. O sistema vai enviar o texto proposto numa mensagem separada pro corretor copiar/aprovar. Agora encerre com uma frase curta comentando o que você propôs (NÃO repita o texto do draft).",
+            });
+          } else {
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: "Erro: faltam campos obrigatórios (lead_telefone, texto, confianca).",
+              is_error: true,
+            });
+          }
+          continue;
+        }
+
         const output = await runTool(block.name, block.input as Record<string, unknown>);
         console.log("[copilot] tool_result", {
           name: block.name,
@@ -312,5 +382,8 @@ ${leadsList}${focusedBlock}`;
   }
 
   console.warn("[copilot] hit MAX_TURNS without final answer");
-  return "Perdi a linha de raciocínio aqui — pode reformular a pergunta?";
+  return {
+    reply: "Perdi a linha de raciocínio aqui — pode reformular a pergunta?",
+    draft: capturedDraft,
+  };
 }
