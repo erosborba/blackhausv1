@@ -6,29 +6,32 @@ import { embedMany } from "@/lib/openai";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// .nullish() = optional + nullable. Claude costuma devolver null em campos
+// ausentes do descritivo (ex: preço da tipologia quando a tabela ainda não
+// está pronta), e queremos aceitar.
 const tipologia = z.object({
-  quartos: z.number().int().optional(),
-  suites: z.number().int().optional(),
-  vagas: z.number().int().optional(),
-  area: z.number().optional(),
-  preco: z.number().optional(),
+  quartos: z.number().int().nullish(),
+  suites: z.number().int().nullish(),
+  vagas: z.number().int().nullish(),
+  area: z.number().nullish(),
+  preco: z.number().nullish(),
 });
 
 const empSchema = z.object({
   nome: z.string().min(1),
-  slug: z.string().optional(),
-  construtora: z.string().optional(),
-  status: z.enum(["lancamento", "em_obras", "pronto_para_morar"]).optional(),
-  endereco: z.string().optional(),
-  bairro: z.string().optional(),
-  cidade: z.string().optional(),
-  estado: z.string().optional(),
-  preco_inicial: z.number().optional(),
+  slug: z.string().nullish(),
+  construtora: z.string().nullish(),
+  status: z.enum(["lancamento", "em_obras", "pronto_para_morar"]).nullish(),
+  endereco: z.string().nullish(),
+  bairro: z.string().nullish(),
+  cidade: z.string().nullish(),
+  estado: z.string().nullish(),
+  preco_inicial: z.number().nullish(),
   tipologias: z.array(tipologia).default([]),
   diferenciais: z.array(z.string()).default([]),
   lazer: z.array(z.string()).default([]),
-  entrega: z.string().optional(),
-  descricao: z.string().optional(),
+  entrega: z.string().nullish(),
+  descricao: z.string().nullish(),
   midias: z.array(z.any()).default([]),
 });
 
