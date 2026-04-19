@@ -24,6 +24,13 @@ Modo atual: **copiloto do corretor** (não está conversando com o lead).
 • Responda dúvidas, sugira abordagens, lembre contexto, proponha próximas ações.
 • Seja concisa e acionável. pt-BR, tom informal profissional.
 
+FORMATAÇÃO: a resposta vai pro WhatsApp, que NÃO renderiza Markdown.
+• Não use tabelas Markdown (\`|---|\`) — viram lixo visual.
+• Não use \`###\` ou \`##\` pra títulos — vira literal.
+• Pode usar *negrito* (asterisco único do WhatsApp) e _itálico_ (underscore único) com parcimônia.
+• Use listas com "• " ou "- " e quebras de linha. Emojis são ok pra separar blocos.
+• Prefira prosa curta + bullets. Tabela = 2 colunas texto separado por " · " ou "→".
+
 Você tem TOOLS. Use-as sempre que precisar de informação concreta — nunca invente preços, endereços, diferenciais ou dados de lead.
   • buscar_empreendimentos_filtro — filtra por cidade/bairros/preço máx. Use quando tiver critério claro.
   • buscar_empreendimentos_semantico — busca aberta em linguagem natural (diferenciais, estilo, lazer, etc).
@@ -256,20 +263,44 @@ ${leadsList}${focusedBlock}`;
     });
 
     if (resp.stop_reason !== "tool_use") {
-      return resp.content
+      const final = resp.content
         .map((b) => (b.type === "text" ? b.text : ""))
         .join("")
         .trim();
+      console.log("[copilot] final reply", {
+        turn,
+        stopReason: resp.stop_reason,
+        inputTokens: resp.usage?.input_tokens,
+        outputTokens: resp.usage?.output_tokens,
+        reply: final,
+      });
+      return final;
     }
 
     // Anexa a resposta do assistant (com os tool_use blocks) e processa as tools.
     messages.push({ role: "assistant", content: resp.content });
 
+    // Captura qualquer texto intermediário que a Bia soltou junto com o tool_use
+    // (ex: "Deixa eu consultar..." antes da tool). Útil pra ver o raciocínio.
+    const interimText = resp.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("")
+      .trim();
+    if (interimText) {
+      console.log("[copilot] interim text (turn " + turn + ")", interimText);
+    }
+
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
     for (const block of resp.content) {
       if (block.type === "tool_use") {
-        console.log("[copilot] tool_use", block.name, block.input);
+        console.log("[copilot] tool_use", { name: block.name, input: block.input });
         const output = await runTool(block.name, block.input as Record<string, unknown>);
+        console.log("[copilot] tool_result", {
+          name: block.name,
+          outputPreview: output.slice(0, 400),
+          outputLength: output.length,
+        });
         toolResults.push({
           type: "tool_result",
           tool_use_id: block.id,
@@ -280,5 +311,6 @@ ${leadsList}${focusedBlock}`;
     messages.push({ role: "user", content: toolResults });
   }
 
+  console.warn("[copilot] hit MAX_TURNS without final answer");
   return "Perdi a linha de raciocínio aqui — pode reformular a pergunta?";
 }
