@@ -5,6 +5,16 @@ import { appendMessage, updateLead, upsertLead, type Lead } from "@/lib/leads";
 import { runSDR } from "@/agent/graph";
 import { scheduleInbound } from "@/lib/debounce";
 import { generateBrief } from "@/lib/brief";
+import { getAgentByPhone, isAgentPhone } from "@/lib/agents";
+import {
+  closeBridge,
+  forwardToAgent,
+  forwardToLead,
+  initiateHandoff,
+  openBridge,
+  resolveTargetLead,
+} from "@/lib/handoff";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,17 +22,18 @@ export const dynamic = "force-dynamic";
 /**
  * Webhook do Evolution API.
  *
- * Eventos esperados:
- *  - MESSAGES_UPSERT: nova mensagem recebida.
- *  - CONNECTION_UPDATE / QRCODE_UPDATED: ignoramos por ora (logamos).
+ * Roteamento:
+ *  1. Se o remetente é um corretor cadastrado em `agents`, vai pro fluxo
+ *     de ponte (responde a lead, /fim, /lead <id>, /status).
+ *  2. Se é lead com `bridge_active`, encaminhamos pro corretor (sem LLM).
+ *  3. Se é lead com `human_takeover`, ignoramos (corretor vai responder pelo admin).
+ *  4. Caso contrário, roda o agente (debounce + LLM).
  *
- * Segurança: validamos um header `apikey` que precisa bater com EVOLUTION_WEBHOOK_SECRET.
- * (Configure isso no Evolution via WEBHOOK_REQUEST_HEADERS.)
+ * Segurança: `apikey` header precisa bater com EVOLUTION_WEBHOOK_SECRET ou
+ * EVOLUTION_API_KEY.
  */
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("apikey") ?? req.headers.get("x-webhook-secret");
-  // Evolution v2.2.3 ignora WEBHOOK_REQUEST_HEADERS em alguns builds e manda o
-  // AUTHENTICATION_API_KEY no header `apikey`. Aceita match com qualquer um dos dois.
   const validSecrets = [env.EVOLUTION_WEBHOOK_SECRET, env.EVOLUTION_API_KEY].filter(Boolean);
   if (secretHeader && !validSecrets.includes(secretHeader)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -42,10 +53,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: event });
   }
 
-  // Forma do data varia: às vezes vem { key, message, pushName }, às vezes array.
   const items: any[] = Array.isArray(data) ? data : [data];
 
-  // Responde já ao Evolution; processa em background.
   queueMicrotask(() => processMessages(items).catch((e) => console.error("[webhook] processMessages", e)));
   return NextResponse.json({ ok: true });
 }
@@ -74,6 +83,14 @@ function extractText(message: any): string {
   );
 }
 
+/** Texto da mensagem citada (quando o usuário usa "Responder" no WhatsApp). */
+function extractQuotedText(message: any): string | null {
+  const ctx = message?.extendedTextMessage?.contextInfo ?? message?.contextInfo;
+  const quoted = ctx?.quotedMessage;
+  if (!quoted) return null;
+  return extractText(quoted) || null;
+}
+
 async function handleOne(it: any) {
   const key = it?.key ?? it?.message?.key;
   const message = it?.message ?? it;
@@ -83,14 +100,14 @@ async function handleOne(it: any) {
   const pushName: string | undefined = it?.pushName ?? it?.message?.pushName;
 
   if (fromMe || !remoteJid) return;
-  // Ignora grupos por ora
   if (remoteJid.endsWith("@g.us")) return;
 
-  const text = extractText(message?.message ?? message);
+  const innerMessage = message?.message ?? message;
+  const text = extractText(innerMessage);
   if (!text || text.trim().length === 0) return;
+  const quotedText = extractQuotedText(innerMessage);
 
-  // @lid (Linked Identifier) = JID sintético quando o contato não está na agenda.
-  // Evolution v2.3.x traz o número real em `remoteJidAlt`. Fallbacks para payloads antigos.
+  // Resolve @lid → JID real.
   let realJid: string = remoteJid;
   if (remoteJid.endsWith("@lid")) {
     const resolved =
@@ -100,20 +117,23 @@ async function handleOne(it: any) {
       it?.senderPn ||
       it?.sender ||
       it?.participant;
-    if (resolved) {
-      realJid = resolved;
-    } else {
-      console.warn("[webhook] @lid não resolvido, usando LID como sendTarget. Payload:", JSON.stringify(it).slice(0, 2000));
-    }
+    if (resolved) realJid = resolved;
+    else console.warn("[webhook] @lid não resolvido, usando LID:", JSON.stringify(it).slice(0, 2000));
   }
-  // Pra @lid sem senderPn, "phone" fica sendo o próprio id numérico do LID — serve como chave única.
   const phone = jidToPhone(realJid);
   if (!phone || phone.length < 8) {
     console.warn("[webhook] phone inválido:", { remoteJid, realJid, phone });
     return;
   }
-  // Alvo do send: se LID, mandamos o JID completo; senão, só o número.
   const sendTarget = realJid.endsWith("@lid") ? realJid : phone;
+
+  // ── Rota 1: corretor ──
+  if (await isAgentPhone(phone)) {
+    await handleAgentMessage({ phone, text, quotedText, sendTarget });
+    return;
+  }
+
+  // ── Rota 2/3/4: lead ──
   const lead = await upsertLead(phone, pushName);
 
   await appendMessage({
@@ -125,12 +145,29 @@ async function handleOne(it: any) {
     evolutionEvent: it,
   });
 
+  // Ponte ativa: repassa pro corretor, não roda LLM.
+  if (lead.bridge_active && lead.assigned_agent_id) {
+    const agent = await supabaseAdmin()
+      .from("agents")
+      .select("*")
+      .eq("id", lead.assigned_agent_id)
+      .maybeSingle();
+    if (agent.data) {
+      await forwardToAgent({
+        agent: agent.data as any,
+        leadId: lead.id,
+        leadName: lead.full_name || lead.push_name || lead.phone,
+        text,
+      });
+      return;
+    }
+  }
+
   if (lead.human_takeover) {
-    // Humano assumiu — não responde.
+    // Pausado mas sem ponte — corretor responde pelo admin.
     return;
   }
 
-  // Indicador "digitando…" imediato. O turno real só roda após o debounce.
   sendPresence(sendTarget, "composing").catch(() => {});
 
   scheduleInbound({
@@ -143,7 +180,6 @@ async function handleOne(it: any) {
 
 async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget: string }) {
   const { lead, combinedText, sendTarget } = args;
-  // Renova presença — pode ter passado alguns segundos desde a última msg.
   sendPresence(sendTarget, "composing").catch(() => {});
 
   const { reply, needsHandoff, qualification } = await runSDR({
@@ -168,16 +204,129 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
     human_takeover: needsHandoff ? true : undefined,
   });
 
-  // Auto-brief: quando a Bia aciona handoff sozinha, gera o briefing do corretor
-  // e salva em leads.brief — o UI mostra inline no chat. Falha não bloqueia.
-  if (needsHandoff && !lead.brief) {
-    try {
-      const brief = await generateBrief(lead.id);
-      await updateLead(lead.id, { brief, brief_at: new Date().toISOString() });
-    } catch (e) {
-      console.error("[webhook] auto-brief failed:", e instanceof Error ? e.message : e);
+  if (needsHandoff) {
+    // Auto-brief (não bloqueia).
+    if (!lead.brief) {
+      try {
+        const brief = await generateBrief(lead.id);
+        await updateLead(lead.id, { brief, brief_at: new Date().toISOString() });
+      } catch (e) {
+        console.error("[webhook] auto-brief failed:", e instanceof Error ? e.message : e);
+      }
     }
+    // Dispara notificação pro corretor da vez (fire-and-forget).
+    initiateHandoff(lead.id, "Bia detectou que precisa de humano").catch((e) =>
+      console.error("[webhook] initiateHandoff failed:", e),
+    );
   }
+}
+
+/**
+ * Mensagem de um corretor. Comandos:
+ *  - `/fim` ou `/sair`: fecha a ponte (lead volta a esperar resposta manual).
+ *  - `/status`: lista leads pendentes/ativos do corretor.
+ *  - `/lead <id>` (prefix 8+): abre sessão com esse lead.
+ *  - Quote de notificação (ou mensagem repassada): Bia repassa texto ao lead.
+ *  - Texto solto: usa sessão aberta, senão orienta.
+ */
+async function handleAgentMessage(args: {
+  phone: string;
+  text: string;
+  quotedText: string | null;
+  sendTarget: string;
+}) {
+  const agent = await getAgentByPhone(args.phone);
+  if (!agent) return;
+
+  const t = args.text.trim();
+
+  if (/^\/(fim|sair)\b/i.test(t)) {
+    if (agent.current_lead_id) {
+      await closeBridge(agent.current_lead_id);
+      await sendText({
+        to: agent.phone,
+        text: `✅ Ponte encerrada. Lead continua pausado no admin — retome a Bia por lá se quiser.`,
+        delayMs: 0,
+      });
+    } else {
+      await sendText({ to: agent.phone, text: "Sem ponte ativa.", delayMs: 0 });
+    }
+    return;
+  }
+
+  if (/^\/status\b/i.test(t)) {
+    const sb = supabaseAdmin();
+    const { data } = await sb
+      .from("leads")
+      .select("id, phone, push_name, full_name, bridge_active, handoff_notified_at")
+      .eq("assigned_agent_id", agent.id)
+      .order("handoff_notified_at", { ascending: false })
+      .limit(10);
+    const lines = (data ?? []).map((l) => {
+      const name = l.full_name || l.push_name || l.phone;
+      const state = l.bridge_active ? "🟢 ponte" : "🟡 aguardando";
+      return `${state} ${name} — lead: ${l.id}`;
+    });
+    await sendText({
+      to: agent.phone,
+      text: lines.length > 0 ? lines.join("\n") : "Sem leads atribuídos.",
+      delayMs: 0,
+    });
+    return;
+  }
+
+  const targetLeadId = await resolveTargetLead({
+    agent,
+    text: t,
+    quotedText: args.quotedText,
+  });
+
+  if (!targetLeadId) {
+    await sendText({
+      to: agent.phone,
+      text: `Não entendi qual lead. Opções:
+• Use "Responder" numa notificação minha.
+• Ou envie: /lead <id-do-lead>
+• Ver pendentes: /status`,
+      delayMs: 0,
+    });
+    return;
+  }
+
+  // Abre/confirma ponte e repassa.
+  const sb = supabaseAdmin();
+  const { data: lead } = await sb
+    .from("leads")
+    .select("id, phone")
+    .eq("id", targetLeadId)
+    .maybeSingle();
+  if (!lead) {
+    await sendText({ to: agent.phone, text: "Lead não encontrado.", delayMs: 0 });
+    return;
+  }
+
+  await openBridge(lead.id, agent.id);
+
+  // Comando `/lead <id>` sem texto adicional: só abre sessão.
+  const cmdOnly = t.match(/^\/lead\s+[0-9a-f-]{8,36}\s*$/i);
+  if (cmdOnly) {
+    await sendText({
+      to: agent.phone,
+      text: `✅ Sessão aberta. Próximas mensagens vão pro lead. Use /fim pra encerrar.`,
+      delayMs: 0,
+    });
+    return;
+  }
+
+  // Remove o comando do texto se presente.
+  const cleanText = t.replace(/^\/lead\s+[0-9a-f-]{8,36}\s*/i, "").trim();
+  if (!cleanText) return;
+
+  await forwardToLead({
+    leadId: lead.id,
+    text: cleanText,
+    sendTarget: lead.phone,
+  });
 }
 
 export function GET() {

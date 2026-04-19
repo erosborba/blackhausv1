@@ -26,6 +26,10 @@ export type Lead = {
   agent_notes?: string | null;
   brief?: string | null;
   brief_at?: string | null;
+  assigned_agent_id?: string | null;
+  bridge_active?: boolean;
+  handoff_notified_at?: string | null;
+  handoff_attempts?: number;
 };
 
 export async function upsertLead(phone: string, pushName?: string): Promise<Lead> {
