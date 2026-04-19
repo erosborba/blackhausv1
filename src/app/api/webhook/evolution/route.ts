@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { jidToPhone, sendPresence, sendText } from "@/lib/evolution";
-import { appendMessage, updateLead, upsertLead } from "@/lib/leads";
+import { appendMessage, updateLead, upsertLead, type Lead } from "@/lib/leads";
 import { runSDR } from "@/agent/graph";
+import { scheduleInbound } from "@/lib/debounce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -128,12 +129,25 @@ async function handleOne(it: any) {
     return;
   }
 
-  // Indicador "digitando…"
+  // Indicador "digitando…" imediato. O turno real só roda após o debounce.
+  sendPresence(sendTarget, "composing").catch(() => {});
+
+  scheduleInbound({
+    lead,
+    text,
+    sendTarget,
+    flush: runAgentTurn,
+  });
+}
+
+async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget: string }) {
+  const { lead, combinedText, sendTarget } = args;
+  // Renova presença — pode ter passado alguns segundos desde a última msg.
   sendPresence(sendTarget, "composing").catch(() => {});
 
   const { reply, needsHandoff, qualification } = await runSDR({
     lead,
-    userText: text,
+    userText: combinedText,
   });
 
   if (reply) {
