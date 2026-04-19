@@ -9,26 +9,46 @@ import {
 } from "./agents";
 import { appendMessage, updateLead } from "./leads";
 import { cancelEscalation, scheduleEscalation } from "./handoffQueue";
+import { brPhoneVariants } from "./phone";
 
 /**
  * Orquestração do handoff WhatsApp (corretor ↔ Bia ↔ lead).
  *
- * - `initiateHandoff`: chamado no webhook quando a Bia decide handoff. Escolhe
- *   próximo corretor no rodízio, notifica, agenda escalação em 5min.
- * - `escalateHandoff`: dispara quando o timer vence sem `bridge_active`.
- * - `openBridge`: corretor respondeu/comandou, cancela timer, ativa ponte.
- * - `closeBridge`: `/fim` ou retomar Bia. Mantém human_takeover (corretor
- *   decide quando liberar via admin).
- * - `forwardToAgent` / `forwardToLead`: encaminhamentos da ponte.
+ * Identificador humano: usamos o telefone do lead como referência ("lead:
+ * 5541995298060"). O JID é stable, curto, e o corretor já reconhece clientes
+ * por número — muito melhor que UUID. Internamente, convertemos pra id via
+ * lookup no `leads.phone`.
  */
 
-const REF_PATTERN = /lead:\s*([0-9a-f-]{8,36})/i;
+// Telefone BR (12-13 dígitos) ou UUID (fallback pra referências antigas).
+const PHONE_REF_PATTERN = /lead:\s*(\d{10,13})/i;
+const UUID_REF_PATTERN = /lead:\s*([0-9a-f]{8}-[0-9a-f-]{20,28})/i;
 
-/** Extrai leadId de uma mensagem citada (quoted). Retorna null se não achar. */
-export function parseLeadIdFromQuote(quotedText: string | null | undefined): string | null {
+/** Extrai referência (telefone ou UUID) de uma mensagem citada. */
+export function parseLeadRefFromQuote(quotedText: string | null | undefined): string | null {
   if (!quotedText) return null;
-  const m = quotedText.match(REF_PATTERN);
-  return m ? m[1] : null;
+  const phone = quotedText.match(PHONE_REF_PATTERN);
+  if (phone) return phone[1];
+  const uuid = quotedText.match(UUID_REF_PATTERN);
+  if (uuid) return uuid[1];
+  return null;
+}
+
+/** Resolve uma ref (telefone ou UUID) pra lead.id. */
+async function leadIdFromRef(ref: string): Promise<string | null> {
+  const sb = supabaseAdmin();
+  if (/^\d{10,13}$/.test(ref)) {
+    const variants = brPhoneVariants(ref);
+    const { data } = await sb
+      .from("leads")
+      .select("id")
+      .in("phone", variants)
+      .limit(1)
+      .maybeSingle();
+    return (data?.id as string | undefined) ?? null;
+  }
+  const { data } = await sb.from("leads").select("id").eq("id", ref).maybeSingle();
+  return (data?.id as string | undefined) ?? null;
 }
 
 function formatHandoffNotification(args: {
@@ -42,13 +62,13 @@ function formatHandoffNotification(args: {
   const briefBlock = args.brief ? `\n\n${args.brief}` : "";
   return `🔔 Lead quente — Blackhaus
 
-${args.leadName} (${args.leadPhone})
+${args.leadName} · ${args.leadPhone}
 Motivo: ${args.reason}${briefBlock}
 
 Abrir thread: ${args.appBaseUrl}/admin/leads/${args.leadId}
 Responda esta mensagem pra falar com ele (a Bia repassa).
 
-lead: ${args.leadId}`;
+lead: ${args.leadPhone}`;
 }
 
 export async function initiateHandoff(leadId: string, reason = "lead pediu humano") {
@@ -92,18 +112,12 @@ export async function escalateHandoff(leadId: string) {
     console.error("[handoff] escalate: lead não encontrado", leadId);
     return;
   }
-  if (lead.bridge_active) {
-    // Corretor abriu ponte antes do timer rodar — nada a fazer.
-    return;
-  }
+  if (lead.bridge_active) return;
 
-  // Exclui todos os corretores já tentados (por simplicidade, só o atual;
-  // poderíamos manter array de tentados, mas rodízio já evita os recentes).
   const excludeIds: string[] = lead.assigned_agent_id ? [lead.assigned_agent_id] : [];
   const next = await nextInRotation(excludeIds);
   if (!next) {
     console.warn("[handoff] escalate: sem próximo corretor disponível", leadId);
-    // Flag no lead pra admin ver que handoff falhou.
     await updateLead(leadId, { stage: "handoff_stuck" });
     return;
   }
@@ -144,6 +158,7 @@ async function notifyAgentAndSchedule(args: {
     agentPhone: args.agent.phone,
     agentId: args.agent.id,
     leadId: args.leadId,
+    leadPhone: args.leadPhone,
     attempt: args.attempts,
   });
 
@@ -159,6 +174,7 @@ async function notifyAgentAndSchedule(args: {
       handoff_notified_at: new Date().toISOString(),
       handoff_attempts: args.attempts,
       bridge_active: false,
+      bridge_closed_at: null,
     } as Record<string, unknown>);
   } catch (e) {
     console.error("[handoff] updateLead (notify) FAILED:", e instanceof Error ? e.message : e);
@@ -177,12 +193,12 @@ async function notifyAgentAndSchedule(args: {
   console.log("[handoff] escalation scheduled for", args.leadId);
 }
 
-/** Corretor engajou (respondeu quote ou abriu sessão). Cancela timer e ativa ponte. */
 export async function openBridge(leadId: string, agentId: string) {
   cancelEscalation(leadId);
   await updateLead(leadId, {
     bridge_active: true,
     assigned_agent_id: agentId,
+    bridge_closed_at: null,
   } as Record<string, unknown>);
   await markAssigned(agentId, leadId);
 }
@@ -198,10 +214,12 @@ export async function closeBridge(leadId: string) {
   if (data?.assigned_agent_id) {
     await clearCurrentLead(data.assigned_agent_id);
   }
-  await updateLead(leadId, { bridge_active: false } as Record<string, unknown>);
+  await updateLead(leadId, {
+    bridge_active: false,
+    bridge_closed_at: new Date().toISOString(),
+  } as Record<string, unknown>);
 }
 
-/** Corretor escreveu → repassa pro lead. Registra como outbound/assistant. */
 export async function forwardToLead(args: {
   leadId: string;
   text: string;
@@ -216,14 +234,30 @@ export async function forwardToLead(args: {
   });
 }
 
-/** Lead escreveu → repassa pro corretor, com referência pra ele citar. */
+/**
+ * Lead escreveu → repassa pro corretor. `mode` controla a copy:
+ *  - "bridge": ponte ativa, só o texto limpo
+ *  - "waiting": corretor notificado mas ainda não engajou
+ *  - "closed": corretor deu /fim mas lead continua pausado (nova msg do lead)
+ */
 export async function forwardToAgent(args: {
   agent: Agent;
   leadName: string;
+  leadPhone: string;
   leadId: string;
   text: string;
+  mode: "bridge" | "waiting" | "closed";
 }) {
-  const formatted = `💬 ${args.leadName}:\n${args.text}\n\nlead: ${args.leadId}`;
+  let prefix = "";
+  let suffix = "";
+  if (args.mode === "waiting") {
+    prefix = "⏳ (aguardando você abrir a ponte)\n";
+  } else if (args.mode === "closed") {
+    prefix = "💭 (ponte encerrada — cliente falou de novo)\n";
+    suffix = `\n\nReabrir: responda esta mensagem ou envie "/lead ${args.leadPhone}".`;
+  }
+
+  const formatted = `${prefix}💬 ${args.leadName}:\n${args.text}${suffix}\n\nlead: ${args.leadPhone}`;
   try {
     await sendText({ to: args.agent.phone, text: formatted, delayMs: 0 });
   } catch (e) {
@@ -233,41 +267,32 @@ export async function forwardToAgent(args: {
 
 /**
  * Resolve qual lead o corretor quer conversar:
- *  1. Se a mensagem tem quote com `lead: <id>`, usa esse.
- *  2. Senão, se existe `/lead <id>` no texto, usa.
- *  3. Senão, se o corretor tem `current_lead_id` gravado, usa.
+ *  1. Quote com `lead: <phone|uuid>` → lookup.
+ *  2. `/lead <phone|uuid>` no texto.
+ *  3. `agent.current_lead_id` (sessão ativa, limpa por /fim).
+ *  4. Ponte ainda ativa atribuída a este corretor (defesa contra dessincronização).
  */
 export async function resolveTargetLead(args: {
   agent: Agent;
   text: string;
   quotedText: string | null;
 }): Promise<string | null> {
-  const fromQuote = parseLeadIdFromQuote(args.quotedText);
+  const fromQuote = parseLeadRefFromQuote(args.quotedText);
   console.log("[resolve] quote parse", { fromQuote, quotedText: args.quotedText?.slice(0, 160) ?? null });
   if (fromQuote) {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb
-      .from("leads")
-      .select("id")
-      .eq("id", fromQuote)
-      .maybeSingle();
-    if (error) console.error("[resolve] lookup by quote failed:", error.message);
-    if (data) return data.id as string;
+    const id = await leadIdFromRef(fromQuote);
+    if (id) return id;
   }
-  const cmd = args.text.match(/^\/lead\s+([0-9a-f-]{8,36})/i);
+  const cmd = args.text.match(/^\/lead\s+(\S+)/i);
   if (cmd) {
-    const sb = supabaseAdmin();
-    const { data } = await sb.from("leads").select("id").eq("id", cmd[1]).maybeSingle();
-    if (data) return data.id as string;
+    const id = await leadIdFromRef(cmd[1]);
+    if (id) return id;
   }
-  // Fallback 1: agent já tem lead atual gravado (sessão ativa — é limpa por /fim).
   const fresh = await getAgentById(args.agent.id);
   if (fresh?.current_lead_id) {
     console.log("[resolve] using agent.current_lead_id", fresh.current_lead_id);
     return fresh.current_lead_id;
   }
-  // Fallback 2: ponte já aberta pra este corretor (se por algum motivo
-  // current_lead_id ficou null mas bridge_active ainda true).
   const sb = supabaseAdmin();
   const { data: active } = await sb
     .from("leads")

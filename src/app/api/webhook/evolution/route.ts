@@ -169,7 +169,7 @@ async function handleOne(it: any) {
     evolutionEvent: it,
   });
 
-  // Ponte ativa OU corretor já notificado (aguardando): repassa pro corretor.
+  // Ponte ativa OU corretor já notificado (aguardando) OU ponte fechada por /fim.
   if (lead.assigned_agent_id && (lead.bridge_active || lead.human_takeover)) {
     const agentRow = await supabaseAdmin()
       .from("agents")
@@ -177,12 +177,18 @@ async function handleOne(it: any) {
       .eq("id", lead.assigned_agent_id)
       .maybeSingle();
     if (agentRow.data) {
-      const prefix = lead.bridge_active ? "" : "⏳ (aguardando você abrir a ponte)\n";
+      const mode: "bridge" | "waiting" | "closed" = lead.bridge_active
+        ? "bridge"
+        : (lead as any).bridge_closed_at
+        ? "closed"
+        : "waiting";
       await forwardToAgent({
         agent: agentRow.data as any,
         leadId: lead.id,
         leadName: lead.full_name || lead.push_name || lead.phone,
-        text: prefix + text,
+        leadPhone: lead.phone,
+        text,
+        mode,
       });
       return;
     }
@@ -303,18 +309,24 @@ async function handleAgentMessage(args: {
     const sb = supabaseAdmin();
     const { data } = await sb
       .from("leads")
-      .select("id, phone, push_name, full_name, bridge_active, handoff_notified_at")
+      .select("id, phone, push_name, full_name, bridge_active, bridge_closed_at, handoff_notified_at")
       .eq("assigned_agent_id", agent.id)
       .order("handoff_notified_at", { ascending: false })
       .limit(10);
-    const lines = (data ?? []).map((l) => {
+    const lines = (data ?? []).map((l: any) => {
       const name = l.full_name || l.push_name || l.phone;
-      const state = l.bridge_active ? "🟢 ponte" : "🟡 aguardando";
-      return `${state} ${name} — lead: ${l.id}`;
+      const state = l.bridge_active
+        ? "🟢 ponte"
+        : l.bridge_closed_at
+        ? "💭 encerrada"
+        : "🟡 aguardando";
+      return `${state} ${name} · ${l.phone}`;
     });
     await sendText({
       to: agent.phone,
-      text: lines.length > 0 ? lines.join("\n") : "Sem leads atribuídos.",
+      text: lines.length > 0
+        ? `${lines.join("\n")}\n\nReabrir: /lead <telefone>`
+        : "Sem leads atribuídos.",
       delayMs: 0,
     });
     return;
@@ -331,8 +343,8 @@ async function handleAgentMessage(args: {
     await sendText({
       to: agent.phone,
       text: `Não entendi qual lead. Opções:
-• Use "Responder" numa notificação minha.
-• Ou envie: /lead <id-do-lead>
+• Use "Responder" numa notificação minha (quote).
+• Ou envie: /lead <telefone>  (ex: /lead 5541995298060)
 • Ver pendentes: /status`,
       delayMs: 0,
     });
@@ -353,8 +365,8 @@ async function handleAgentMessage(args: {
 
   await openBridge(lead.id, agent.id);
 
-  // Comando `/lead <id>` sem texto adicional: só abre sessão.
-  const cmdOnly = t.match(/^\/lead\s+[0-9a-f-]{8,36}\s*$/i);
+  // Comando `/lead <ref>` (sem texto extra) só abre sessão.
+  const cmdOnly = t.match(/^\/lead\s+\S+\s*$/i);
   if (cmdOnly) {
     await sendText({
       to: agent.phone,
@@ -364,8 +376,8 @@ async function handleAgentMessage(args: {
     return;
   }
 
-  // Remove o comando do texto se presente.
-  const cleanText = t.replace(/^\/lead\s+[0-9a-f-]{8,36}\s*/i, "").trim();
+  // `/lead <ref> texto`: remove só o cabeçalho do comando.
+  const cleanText = t.replace(/^\/lead\s+\S+\s*/i, "").trim();
   if (!cleanText) return;
 
   await forwardToLead({
