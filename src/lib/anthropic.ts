@@ -11,5 +11,9 @@ export function chatModel(temperature = 0.4) {
     temperature,
     maxTokens: 1024,
   });
+  // @langchain/anthropic default topP/topK=-1 e Claude 4.x rejeita.
+  // Sobrescrevemos pra undefined para que o SDK omita do request.
+  (_model as unknown as { topP: unknown; topK: unknown }).topP = undefined;
+  (_model as unknown as { topP: unknown; topK: unknown }).topK = undefined;
   return _model;
 }

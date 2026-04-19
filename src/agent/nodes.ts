@@ -118,18 +118,18 @@ export async function answerNode(state: SDRStateType) {
     }
   })();
 
-  const messages = [
-    new SystemMessage(SYSTEM_SDR),
-    ...(state.retrieved
-      ? [new SystemMessage(recommendSystem(state.retrieved))]
-      : []),
-    new SystemMessage(`Contexto interno do roteamento (NÃO mencionar ao lead):
+  // Claude 4 exige UM único SystemMessage no início. Concatenamos as partes.
+  const systemParts = [
+    SYSTEM_SDR,
+    state.retrieved ? recommendSystem(state.retrieved) : null,
+    `Contexto interno do roteamento (NÃO mencionar ao lead):
 - intent: ${state.intent}
 - stage: ${state.stage}
 - qualification: ${JSON.stringify(state.qualification)}
-- ação sugerida: ${stageHint}`),
-    ...state.messages,
-  ];
+- ação sugerida: ${stageHint}`,
+  ].filter(Boolean).join("\n\n---\n\n");
+
+  const messages = [new SystemMessage(systemParts), ...state.messages];
 
   const out = await llm.invoke(messages);
   const reply = String(out.content).trim();

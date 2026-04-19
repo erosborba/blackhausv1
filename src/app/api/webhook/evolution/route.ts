@@ -87,16 +87,20 @@ async function handleOne(it: any) {
   const text = extractText(message?.message ?? message);
   if (!text || text.trim().length === 0) return;
 
-  // Quando o WhatsApp entrega a conversa em formato @lid (Linked Identifier),
-  // o remoteJid é um ID sintético. O número real vem em senderPn/participantPn.
+  // @lid (Linked Identifier) = JID sintético quando o contato não está na agenda.
+  // Evolution v2.3.x traz o número real em `remoteJidAlt`. Fallbacks para payloads antigos.
   let realJid: string = remoteJid;
   if (remoteJid.endsWith("@lid")) {
-    const resolved = key?.senderPn || key?.participantPn || it?.senderPn || it?.sender || it?.participant;
+    const resolved =
+      key?.remoteJidAlt ||
+      key?.senderPn ||
+      key?.participantPn ||
+      it?.senderPn ||
+      it?.sender ||
+      it?.participant;
     if (resolved) {
       realJid = resolved;
     } else {
-      // Evolution v2.2.1 às vezes não expõe o número real — logar payload pra debug
-      // e seguir com o @lid como identificador (Evolution roteia o send via LID).
       console.warn("[webhook] @lid não resolvido, usando LID como sendTarget. Payload:", JSON.stringify(it).slice(0, 2000));
     }
   }
