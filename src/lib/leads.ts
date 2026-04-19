@@ -24,6 +24,8 @@ export type Lead = {
   qualification: Qualification;
   human_takeover: boolean;
   agent_notes?: string | null;
+  brief?: string | null;
+  brief_at?: string | null;
 };
 
 export async function upsertLead(phone: string, pushName?: string): Promise<Lead> {

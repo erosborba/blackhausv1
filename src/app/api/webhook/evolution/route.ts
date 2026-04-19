@@ -4,6 +4,7 @@ import { jidToPhone, sendPresence, sendText } from "@/lib/evolution";
 import { appendMessage, updateLead, upsertLead, type Lead } from "@/lib/leads";
 import { runSDR } from "@/agent/graph";
 import { scheduleInbound } from "@/lib/debounce";
+import { generateBrief } from "@/lib/brief";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -166,6 +167,17 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
     status: needsHandoff ? "qualified" : undefined,
     human_takeover: needsHandoff ? true : undefined,
   });
+
+  // Auto-brief: quando a Bia aciona handoff sozinha, gera o briefing do corretor
+  // e salva em leads.brief — o UI mostra inline no chat. Falha não bloqueia.
+  if (needsHandoff && !lead.brief) {
+    try {
+      const brief = await generateBrief(lead.id);
+      await updateLead(lead.id, { brief, brief_at: new Date().toISOString() });
+    } catch (e) {
+      console.error("[webhook] auto-brief failed:", e instanceof Error ? e.message : e);
+    }
+  }
 }
 
 export function GET() {

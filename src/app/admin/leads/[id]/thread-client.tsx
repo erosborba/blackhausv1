@@ -276,22 +276,103 @@ export function ThreadClient({
               Nenhuma mensagem.
             </div>
           ) : (
-            messages.map((m) => (
-              <div
-                key={m.id}
-                style={{
-                  display: "flex",
-                  justifyContent: m.direction === "inbound" ? "flex-start" : "flex-end",
-                  flexDirection: "column",
-                  alignItems: m.direction === "inbound" ? "flex-start" : "flex-end",
-                }}
-              >
-                <div style={bubble(m.direction)}>{m.content}</div>
-                <div style={metaLine}>
-                  {m.direction === "inbound" ? name : "Bia"} · {formatTime(m.created_at)}
-                </div>
-              </div>
-            ))
+            (() => {
+              const items: Array<
+                { kind: "msg"; m: Message } | { kind: "brief"; text: string; at: string }
+              > = messages.map((m) => ({ kind: "msg" as const, m }));
+              if (currentLead.brief && currentLead.brief_at) {
+                const briefTime = new Date(currentLead.brief_at).getTime();
+                let insertAt = items.length;
+                for (let i = 0; i < items.length; i++) {
+                  const it = items[i];
+                  if (it.kind === "msg" && new Date(it.m.created_at).getTime() > briefTime) {
+                    insertAt = i;
+                    break;
+                  }
+                }
+                items.splice(insertAt, 0, {
+                  kind: "brief",
+                  text: currentLead.brief,
+                  at: currentLead.brief_at,
+                });
+              }
+              return items.map((it, idx) => {
+                if (it.kind === "brief") {
+                  return (
+                    <div
+                      key={`brief-${it.at}-${idx}`}
+                      style={{
+                        alignSelf: "stretch",
+                        background: "linear-gradient(135deg, #1a2440 0%, #1e2a48 100%)",
+                        border: "1px solid #3b5998",
+                        borderRadius: 12,
+                        padding: 14,
+                        position: "relative",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 16 }}>✨</span>
+                          <strong style={{ fontSize: 13, color: "#c4d4ff" }}>
+                            Brief da Bia pro corretor
+                          </strong>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: "#8fa4d9",
+                            background: "#0f1730",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.5,
+                          }}
+                        >
+                          🔒 só você vê
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "#e7e7ea",
+                          whiteSpace: "pre-wrap",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {it.text}
+                      </div>
+                      <div style={{ ...metaLine, marginTop: 8, color: "#8fa4d9" }}>
+                        {formatTime(it.at)}
+                      </div>
+                    </div>
+                  );
+                }
+                const m = it.m;
+                return (
+                  <div
+                    key={m.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: m.direction === "inbound" ? "flex-start" : "flex-end",
+                      flexDirection: "column",
+                      alignItems: m.direction === "inbound" ? "flex-start" : "flex-end",
+                    }}
+                  >
+                    <div style={bubble(m.direction)}>{m.content}</div>
+                    <div style={metaLine}>
+                      {m.direction === "inbound" ? name : "Bia"} · {formatTime(m.created_at)}
+                    </div>
+                  </div>
+                );
+              });
+            })()
           )}
         </div>
       </section>
@@ -363,37 +444,6 @@ export function ThreadClient({
               : "Bia responde automaticamente às mensagens recebidas."}
           </div>
         </div>
-
-        {currentLead.brief && (
-          <div style={{ ...card, padding: 20 }}>
-            <div
-              style={{
-                ...sideLabel,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <span>Brief do lead</span>
-              {currentLead.brief_at && (
-                <span style={{ fontSize: 10, textTransform: "none", letterSpacing: 0 }}>
-                  {new Date(currentLead.brief_at).toLocaleString("pt-BR")}
-                </span>
-              )}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: "#e7e7ea",
-                whiteSpace: "pre-wrap",
-                lineHeight: 1.5,
-              }}
-            >
-              {currentLead.brief}
-            </div>
-          </div>
-        )}
 
         <div style={{ ...card, padding: 20 }}>
           <div style={sideLabel}>Dicas pra Bia (ocultas ao lead)</div>
