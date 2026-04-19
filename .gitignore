@@ -15,3 +15,4 @@ postgres-data
 tsconfig.tsbuildinfo
 supabase/.temp/
 supabase/.branches/
+qr.png
