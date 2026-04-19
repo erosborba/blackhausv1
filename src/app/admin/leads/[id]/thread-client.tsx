@@ -111,6 +111,7 @@ export function ThreadClient({
   const [notesDraft, setNotesDraft] = useState(lead.agent_notes ?? "");
   const [savingNotes, setSavingNotes] = useState(false);
   const [savingToggle, setSavingToggle] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +153,24 @@ export function ThreadClient({
       /* erro já em actionError */
     } finally {
       setSavingNotes(false);
+    }
+  }
+
+  async function takeOver() {
+    if (!confirm("Assumir esta conversa? A Bia será pausada e um brief do lead vai ser gerado.")) return;
+    setTakingOver(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/leads/${lead.id}/takeover`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(typeof json.error === "string" ? json.error : "Falha ao assumir");
+      }
+      setCurrentLead((prev) => ({ ...prev, ...(json.data as Lead) }));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTakingOver(false);
     }
   }
 
@@ -310,7 +329,7 @@ export function ThreadClient({
               background: currentLead.human_takeover ? "#1e3a2b" : "#3a2b1e",
               color: currentLead.human_takeover ? "#6bd99b" : "#d9a66b",
               opacity: savingToggle ? 0.6 : 1,
-              marginBottom: 6,
+              marginBottom: 10,
             }}
           >
             {savingToggle
@@ -319,12 +338,62 @@ export function ThreadClient({
               ? "▶ Retomar Bia"
               : "⏸ Pausar Bia"}
           </button>
+          <button
+            onClick={takeOver}
+            disabled={takingOver}
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: takingOver ? "not-allowed" : "pointer",
+              background: "#3b82f6",
+              color: "#fff",
+              opacity: takingOver ? 0.6 : 1,
+              marginBottom: 6,
+            }}
+          >
+            {takingOver ? "Gerando brief…" : "Assumir conversa"}
+          </button>
           <div style={{ fontSize: 11, color: "#8f8f9a", lineHeight: 1.4 }}>
             {currentLead.human_takeover
               ? "Bia não responde. Mensagens do lead continuam registradas."
               : "Bia responde automaticamente às mensagens recebidas."}
           </div>
         </div>
+
+        {currentLead.brief && (
+          <div style={{ ...card, padding: 20 }}>
+            <div
+              style={{
+                ...sideLabel,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <span>Brief do lead</span>
+              {currentLead.brief_at && (
+                <span style={{ fontSize: 10, textTransform: "none", letterSpacing: 0 }}>
+                  {new Date(currentLead.brief_at).toLocaleString("pt-BR")}
+                </span>
+              )}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "#e7e7ea",
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.5,
+              }}
+            >
+              {currentLead.brief}
+            </div>
+          </div>
+        )}
 
         <div style={{ ...card, padding: 20 }}>
           <div style={sideLabel}>Dicas pra Bia (ocultas ao lead)</div>
