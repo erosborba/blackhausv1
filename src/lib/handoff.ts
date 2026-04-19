@@ -260,24 +260,26 @@ export async function resolveTargetLead(args: {
     const { data } = await sb.from("leads").select("id").eq("id", cmd[1]).maybeSingle();
     if (data) return data.id as string;
   }
-  // Fallback 1: agent já tem lead atual gravado
+  // Fallback 1: agent já tem lead atual gravado (sessão ativa — é limpa por /fim).
   const fresh = await getAgentById(args.agent.id);
   if (fresh?.current_lead_id) {
     console.log("[resolve] using agent.current_lead_id", fresh.current_lead_id);
     return fresh.current_lead_id;
   }
-  // Fallback 2: último lead atribuído a este corretor aguardando ou em ponte
+  // Fallback 2: ponte já aberta pra este corretor (se por algum motivo
+  // current_lead_id ficou null mas bridge_active ainda true).
   const sb = supabaseAdmin();
-  const { data: pending } = await sb
+  const { data: active } = await sb
     .from("leads")
-    .select("id, handoff_notified_at")
+    .select("id")
     .eq("assigned_agent_id", args.agent.id)
+    .eq("bridge_active", true)
     .order("handoff_notified_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (pending) {
-    console.log("[resolve] using last assigned", pending.id);
-    return pending.id as string;
+  if (active) {
+    console.log("[resolve] using active bridge", active.id);
+    return active.id as string;
   }
   return null;
 }

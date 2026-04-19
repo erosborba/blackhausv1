@@ -273,8 +273,21 @@ async function handleAgentMessage(args: {
   const t = args.text.trim();
 
   if (/^\/(fim|sair)\b/i.test(t)) {
-    if (agent.current_lead_id) {
-      await closeBridge(agent.current_lead_id);
+    let targetLeadId: string | null = agent.current_lead_id;
+    if (!targetLeadId) {
+      // Sincroniza: procura ponte aberta atribuída a este corretor.
+      const sb = supabaseAdmin();
+      const { data } = await sb
+        .from("leads")
+        .select("id")
+        .eq("assigned_agent_id", agent.id)
+        .eq("bridge_active", true)
+        .limit(1)
+        .maybeSingle();
+      targetLeadId = (data?.id as string | undefined) ?? null;
+    }
+    if (targetLeadId) {
+      await closeBridge(targetLeadId);
       await sendText({
         to: agent.phone,
         text: `✅ Ponte encerrada. Lead continua pausado no admin — retome a Bia por lá se quiser.`,
