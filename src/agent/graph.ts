@@ -56,6 +56,7 @@ export async function runSDR(args: {
     phone: args.lead.phone,
     pushName: args.lead.push_name,
     qualification: args.lead.qualification ?? {},
+    agentNotes: args.lead.agent_notes ?? null,
   } satisfies Partial<SDRStateType>;
 
   const final = await app.invoke(turnInput, {

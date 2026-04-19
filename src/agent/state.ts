@@ -30,6 +30,8 @@ export const SDRState = Annotation.Root({
   retrieved: Annotation<string>({ reducer: (_, n) => n, default: () => "" }),
   reply: Annotation<string>({ reducer: (_, n) => n, default: () => "" }),
   needsHandoff: Annotation<boolean>({ reducer: (_, n) => n, default: () => false }),
+  /** Dicas ocultas do corretor (human-in-the-loop). Injetadas no system prompt. */
+  agentNotes: Annotation<string | null>({ reducer: (_, n) => n, default: () => null }),
 });
 
 export type SDRStateType = typeof SDRState.State;

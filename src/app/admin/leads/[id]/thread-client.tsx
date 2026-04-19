@@ -108,7 +108,52 @@ export function ThreadClient({
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [currentLead, setCurrentLead] = useState(lead);
+  const [notesDraft, setNotesDraft] = useState(lead.agent_notes ?? "");
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [savingToggle, setSavingToggle] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  async function patchLead(patch: Record<string, unknown>) {
+    setActionError(null);
+    const res = await fetch(`/api/admin/leads/${lead.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      const msg = typeof json.error === "string" ? json.error : "Falha ao atualizar";
+      setActionError(msg);
+      throw new Error(msg);
+    }
+    return json.data as Lead;
+  }
+
+  async function togglePause() {
+    setSavingToggle(true);
+    try {
+      const updated = await patchLead({ human_takeover: !currentLead.human_takeover });
+      setCurrentLead((prev) => ({ ...prev, ...updated }));
+    } catch {
+      /* erro já em actionError */
+    } finally {
+      setSavingToggle(false);
+    }
+  }
+
+  async function saveNotes() {
+    setSavingNotes(true);
+    try {
+      const value = notesDraft.trim() === "" ? null : notesDraft;
+      const updated = await patchLead({ agent_notes: value });
+      setCurrentLead((prev) => ({ ...prev, ...updated }));
+    } catch {
+      /* erro já em actionError */
+    } finally {
+      setSavingNotes(false);
+    }
+  }
 
   useEffect(() => {
     const sb = supabaseBrowser();
@@ -150,6 +195,13 @@ export function ThreadClient({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages.length]);
+
+  // Sincroniza textarea quando realtime recebe atualização externa.
+  useEffect(() => {
+    setNotesDraft(currentLead.agent_notes ?? "");
+  }, [currentLead.agent_notes]);
+
+  const notesDirty = (currentLead.agent_notes ?? "") !== notesDraft;
 
   const name = currentLead.full_name || currentLead.push_name || currentLead.phone;
 
@@ -242,12 +294,81 @@ export function ThreadClient({
           {renderQualification(currentLead.qualification)}
         </div>
 
-        {currentLead.agent_notes && (
-          <div style={{ ...card, padding: 20 }}>
-            <div style={sideLabel}>Dicas pra Bia</div>
-            <div style={{ fontSize: 13, color: "#e7e7ea", whiteSpace: "pre-wrap" }}>
-              {currentLead.agent_notes}
-            </div>
+        <div style={{ ...card, padding: 20 }}>
+          <div style={sideLabel}>Controle da Bia</div>
+          <button
+            onClick={togglePause}
+            disabled={savingToggle}
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: savingToggle ? "not-allowed" : "pointer",
+              background: currentLead.human_takeover ? "#1e3a2b" : "#3a2b1e",
+              color: currentLead.human_takeover ? "#6bd99b" : "#d9a66b",
+              opacity: savingToggle ? 0.6 : 1,
+              marginBottom: 6,
+            }}
+          >
+            {savingToggle
+              ? "Atualizando…"
+              : currentLead.human_takeover
+              ? "▶ Retomar Bia"
+              : "⏸ Pausar Bia"}
+          </button>
+          <div style={{ fontSize: 11, color: "#8f8f9a", lineHeight: 1.4 }}>
+            {currentLead.human_takeover
+              ? "Bia não responde. Mensagens do lead continuam registradas."
+              : "Bia responde automaticamente às mensagens recebidas."}
+          </div>
+        </div>
+
+        <div style={{ ...card, padding: 20 }}>
+          <div style={sideLabel}>Dicas pra Bia (ocultas ao lead)</div>
+          <textarea
+            value={notesDraft}
+            onChange={(e) => setNotesDraft(e.target.value)}
+            placeholder="Ex: Lead veio por indicação do Pedro, seja mais informal. Prefere WhatsApp à noite."
+            style={{
+              width: "100%",
+              minHeight: 100,
+              padding: "8px 10px",
+              background: "#0b0b0d",
+              border: "1px solid #2a2a32",
+              borderRadius: 8,
+              color: "#e7e7ea",
+              fontSize: 13,
+              fontFamily: "inherit",
+              resize: "vertical",
+              boxSizing: "border-box",
+            }}
+          />
+          <button
+            onClick={saveNotes}
+            disabled={!notesDirty || savingNotes}
+            style={{
+              marginTop: 8,
+              padding: "8px 14px",
+              borderRadius: 8,
+              border: "none",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: !notesDirty || savingNotes ? "not-allowed" : "pointer",
+              background: notesDirty ? "#3b82f6" : "#2a2a32",
+              color: notesDirty ? "#fff" : "#8f8f9a",
+              opacity: savingNotes ? 0.6 : 1,
+            }}
+          >
+            {savingNotes ? "Salvando…" : notesDirty ? "Salvar dicas" : "Salvo"}
+          </button>
+        </div>
+
+        {actionError && (
+          <div style={{ ...card, padding: 16, background: "#3a1818", borderColor: "#8b2a2a" }}>
+            <div style={{ fontSize: 13, color: "#ffb3b3" }}>{actionError}</div>
           </div>
         )}
       </aside>

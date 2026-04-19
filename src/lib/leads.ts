@@ -23,6 +23,7 @@ export type Lead = {
   stage: string | null;
   qualification: Qualification;
   human_takeover: boolean;
+  agent_notes?: string | null;
 };
 
 export async function upsertLead(phone: string, pushName?: string): Promise<Lead> {

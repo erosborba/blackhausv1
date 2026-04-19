@@ -119,9 +119,16 @@ export async function answerNode(state: SDRStateType) {
   })();
 
   // Claude 4 exige UM único SystemMessage no início. Concatenamos as partes.
+  const notesBlock =
+    state.agentNotes && state.agentNotes.trim().length > 0
+      ? `DICAS DO CONSULTOR HUMANO (confidenciais, NÃO mencionar ao lead — use para orientar sua resposta):
+${state.agentNotes.trim()}`
+      : null;
+
   const systemParts = [
     SYSTEM_SDR,
     state.retrieved ? recommendSystem(state.retrieved) : null,
+    notesBlock,
     `Contexto interno do roteamento (NÃO mencionar ao lead):
 - intent: ${state.intent}
 - stage: ${state.stage}
