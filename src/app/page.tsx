@@ -31,6 +31,11 @@ export default async function Page() {
         Painel rápido — leads, empreendimentos e estado da instância WhatsApp.
       </p>
 
+      <nav style={{ display: "flex", gap: 12, marginTop: 16 }}>
+        <a href="/admin/leads" style={navBtn}>Inbox</a>
+        <a href="/admin/empreendimentos/new" style={navBtn}>Novo empreendimento</a>
+      </nav>
+
       <section style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 32 }}>
         <Card title="Leads" value={overview.leadsCount} />
         <Card title="Empreendimentos ativos" value={overview.empCount} />
@@ -89,6 +94,14 @@ export default async function Page() {
 
 const th: React.CSSProperties = { padding: "8px 6px", fontWeight: 500 };
 const td: React.CSSProperties = { padding: "10px 6px", fontSize: 14 };
+const navBtn: React.CSSProperties = {
+  background: "#2a2a32",
+  color: "#e7e7ea",
+  padding: "8px 14px",
+  borderRadius: 8,
+  textDecoration: "none",
+  fontSize: 13,
+};
 
 function Card({ title, value, tone }: { title: string; value: string | number; tone?: "ok" | "warn" }) {
   const color = tone === "warn" ? "#f59e0b" : tone === "ok" ? "#22c55e" : "#e7e7ea";

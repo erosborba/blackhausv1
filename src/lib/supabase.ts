@@ -10,3 +10,14 @@ export function supabaseAdmin(): SupabaseClient {
   });
   return _admin;
 }
+
+let _browser: SupabaseClient | null = null;
+
+/** Client anon para uso no navegador (realtime subscriptions, reads públicos). */
+export function supabaseBrowser(): SupabaseClient {
+  if (_browser) return _browser;
+  _browser = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return _browser;
+}
