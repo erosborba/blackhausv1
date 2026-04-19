@@ -43,29 +43,55 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = empSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
-  }
-  const sb = supabaseAdmin();
-  const { data, error } = await sb.from("empreendimentos").insert(parsed.data).select("*").single();
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  try {
+    const body = await req.json().catch(() => null);
+    const parsed = empSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
+    }
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("empreendimentos")
+      .insert(parsed.data)
+      .select("*")
+      .single();
+    if (error) {
+      console.error("[empreendimentos] insert error:", error);
+      return NextResponse.json(
+        { ok: false, stage: "insert", error: error.message, details: error },
+        { status: 500 },
+      );
+    }
 
-  // Indexa para RAG
-  const chunks = chunkEmpreendimento(data);
-  const embeddings = await embedMany(chunks.map((c) => c.content));
-  if (chunks.length) {
-    await sb.from("empreendimento_chunks").insert(
-      chunks.map((c, i) => ({
-        empreendimento_id: data.id,
-        content: c.content,
-        embedding: embeddings[i],
-        metadata: c.metadata,
-      })),
-    );
+    // Indexa para RAG — falha aqui não invalida o cadastro.
+    const chunks = chunkEmpreendimento(data);
+    let indexed = 0;
+    if (chunks.length) {
+      try {
+        const embeddings = await embedMany(chunks.map((c) => c.content));
+        const { error: chunkErr } = await sb.from("empreendimento_chunks").insert(
+          chunks.map((c, i) => ({
+            empreendimento_id: data.id,
+            content: c.content,
+            embedding: embeddings[i],
+            metadata: c.metadata,
+          })),
+        );
+        if (chunkErr) {
+          console.error("[empreendimentos] chunks insert error:", chunkErr);
+        } else {
+          indexed = chunks.length;
+        }
+      } catch (e) {
+        console.error("[empreendimentos] embed error:", e);
+      }
+    }
+    return NextResponse.json({ ok: true, data, indexed });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[empreendimentos] unhandled:", e);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, data, indexed: chunks.length });
 }
 
 function chunkEmpreendimento(e: any): { content: string; metadata: Record<string, unknown> }[] {
