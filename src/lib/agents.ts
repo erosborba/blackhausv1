@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import { brPhoneVariants } from "./phone";
 
 export type Agent = {
   id: string;
@@ -28,21 +29,28 @@ export async function isAgentPhone(phone: string): Promise<boolean> {
       console.error("[agents] isAgentPhone query failed:", error.message);
       return false;
     }
-    phoneCache = {
-      set: new Set((data ?? []).map((r) => r.phone)),
-      expiresAt: now + PHONE_CACHE_TTL_MS,
-    };
+    // Cache guarda TODAS as variantes BR (com e sem o 9) pra cada agente.
+    const all = new Set<string>();
+    for (const r of data ?? []) {
+      for (const v of brPhoneVariants(r.phone)) all.add(v);
+    }
+    phoneCache = { set: all, expiresAt: now + PHONE_CACHE_TTL_MS };
   }
-  return phoneCache.set.has(phone);
+  for (const v of brPhoneVariants(phone)) {
+    if (phoneCache.set.has(v)) return true;
+  }
+  return false;
 }
 
 export async function getAgentByPhone(phone: string): Promise<Agent | null> {
   const sb = supabaseAdmin();
+  const variants = brPhoneVariants(phone);
   const { data, error } = await sb
     .from("agents")
     .select("*")
-    .eq("phone", phone)
+    .in("phone", variants)
     .eq("active", true)
+    .limit(1)
     .maybeSingle();
   if (error) {
     console.error("[agents] getAgentByPhone:", error.message);

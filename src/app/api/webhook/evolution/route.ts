@@ -140,6 +140,19 @@ async function handleOne(it: any) {
 
   // ── Rota 1: corretor ──
   if (agentHit) {
+    // Dump da estrutura da mensagem pra debug de quote (pode sumir depois).
+    try {
+      console.log(
+        "[webhook] agent raw message keys:",
+        innerMessage ? Object.keys(innerMessage) : null,
+        "contextInfo?",
+        Boolean(
+          innerMessage?.extendedTextMessage?.contextInfo ?? innerMessage?.contextInfo,
+        ),
+      );
+    } catch {
+      /* ignora */
+    }
     await handleAgentMessage({ phone, text, quotedText, sendTarget });
     return;
   }
