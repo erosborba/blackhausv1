@@ -23,14 +23,18 @@ export type Provider = "anthropic" | "openai";
  * mas o banco aceita qualquer string (flexível pra novas features sem migrar).
  */
 export type AiTask =
-  | "extract"           // Claude lendo docs → structured fields
-  | "faq_suggest"       // Claude propondo FAQs
-  | "copilot"           // Claude no painel do corretor
-  | "brief"             // Claude gerando resumo de lead
-  | "bia_router"        // LangChain routerNode (classificação)
-  | "bia_answer"        // LangChain answerNode (resposta final)
-  | "rag_embed_chunks"  // OpenAI embedMany (indexação)
-  | "rag_embed_query";  // OpenAI embed (pergunta do lead)
+  | "extract"            // Claude lendo docs → structured fields
+  | "faq_suggest"        // Claude propondo FAQs
+  | "copilot"            // Claude no painel do corretor
+  | "brief"              // Claude gerando resumo de lead
+  | "bia_router"         // LangChain routerNode (classificação)
+  | "bia_answer"         // LangChain answerNode (resposta final)
+  | "rag_embed_chunks"   // OpenAI embedMany (indexação)
+  | "rag_embed_query"    // OpenAI embed (pergunta do lead)
+  | "lead_memory"        // Haiku mantendo a memória persistente do lead
+  | "followup_message"   // Haiku gerando mensagem de nurturing
+  | "audio_transcribe"   // OpenAI Whisper transcrevendo áudio do lead
+  | "image_vision";      // Claude vision descrevendo imagem do lead
 
 // ---------------------------------------------------------------------------
 // Pricing table (USD por 1M tokens)
@@ -149,6 +153,13 @@ export type LogUsageInput = {
   ok?: boolean;
   error?: string | null;
   metadata?: Record<string, unknown>;
+  /**
+   * Custo fixo em USD, calculado fora de `computeCostUsd`. Use pra modelos
+   * cujo pricing não é token-based (ex.: Whisper = $/segundo). Se setado,
+   * sobrescreve o cálculo por tabela de preço — o campo `cost_usd` do log
+   * passa a refletir esse valor e o dashboard agrega corretamente.
+   */
+  costUsdOverride?: number;
 };
 
 /**
@@ -180,12 +191,15 @@ export function logUsage(input: LogUsageInput): void {
 
 async function logUsageInternal(input: LogUsageInput): Promise<void> {
   try {
-    const cost = computeCostUsd(input.provider, input.model, {
-      input: input.inputTokens,
-      output: input.outputTokens,
-      cacheRead: input.cacheReadTokens,
-      cacheWrite: input.cacheWriteTokens,
-    });
+    const cost =
+      typeof input.costUsdOverride === "number"
+        ? round6(input.costUsdOverride)
+        : computeCostUsd(input.provider, input.model, {
+            input: input.inputTokens,
+            output: input.outputTokens,
+            cacheRead: input.cacheReadTokens,
+            cacheWrite: input.cacheWriteTokens,
+          });
 
     const sb = supabaseAdmin();
     const { error } = await sb.from("ai_usage_log").insert({

@@ -164,9 +164,12 @@ export async function transcribeAudio(args: {
       durationMs: Date.now() - t0,
       leadId: args.leadId,
       ok: true,
+      // Whisper é $/segundo, não $/token — o `computeCostUsd` não cobre.
+      // Mandamos o valor já calculado via override pra cost_usd refletir no
+      // dashboard sem precisar adicionar Whisper à tabela de pricing.
+      costUsdOverride: cost,
       metadata: {
         audio_seconds: Math.round(seconds),
-        estimated_cost_usd: Number(cost.toFixed(6)),
         chars: text.length,
       },
     });

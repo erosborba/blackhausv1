@@ -8,11 +8,13 @@ import { closeBridge } from "./handoff";
  * uma não atrapalha as outras).
  *
  * Políticas (mudar aqui, não em magic numbers espalhados):
- *   - draft storage:       > 7 dias        (wizard abandonado)
- *   - ai_usage_log:        > 30 dias       (agregados no dashboard cobrem esse janela)
- *   - copilot_turns:       > 30 dias       (histórico útil pra Bia é curto)
- *   - drafts (tabela):     > 60 dias       (feedback loop só usa os ~4 mais recentes)
- *   - leads inativos:      > 365 dias      (LGPD / direito ao esquecimento)
+ *   - draft storage:          > 7 dias        (wizard abandonado)
+ *   - ai_usage_log:           > 30 dias       (agregados no dashboard cobrem esse janela)
+ *   - copilot_turns:          > 30 dias       (histórico útil pra Bia é curto)
+ *   - drafts (tabela):        > 60 dias       (feedback loop só usa os ~4 mais recentes)
+ *   - follow_ups terminais:   > 90 dias       (auditoria de nurturing)
+ *   - handoff_escalations:    > 30 dias       (apenas status 'fired'/'cancelled')
+ *   - leads inativos:         > 365 dias      (LGPD / direito ao esquecimento)
  *
  * Cada função retorna contadores pro log/response — facilita ver "quanto
  * limpou hoje" no dashboard sem precisar instrumentar métricas fancy.
@@ -33,6 +35,8 @@ export const CLEANUP_POLICY = {
   AI_USAGE_LOG_DAYS: 30,
   COPILOT_TURNS_DAYS: 30,
   DRAFTS_TABLE_DAYS: 60,
+  FOLLOW_UPS_DAYS: 90,
+  HANDOFF_ESCALATIONS_DAYS: 30,
   INACTIVE_LEAD_DAYS: 365,
 } as const;
 
@@ -296,6 +300,57 @@ export async function cleanupStaleBridges(): Promise<CleanupResult> {
   });
 }
 
+/**
+ * Deleta follow_ups terminais (sent/cancelled/failed) com created_at < cutoff.
+ *
+ * IMPORTANTE: preservamos `pending` independente da idade — se o cron de
+ * scheduling agendou um follow-up pra daqui a 90d e a gente apagar, perde
+ * o envio. Na prática esse caso é raro (intervalos configurados tipicamente
+ * são 3/7/14 dias), mas o filtro pelo `status != 'pending'` é a trava.
+ *
+ * Histórico de 90d cobre:
+ *  - Auditoria no painel /admin/follow-ups
+ *  - Análise de efetividade (% que voltou a responder após step N)
+ *  - Debug de cancel_reason quando o comportamento parece estranho
+ */
+export async function cleanupFollowUps(): Promise<CleanupResult> {
+  return timed("follow_ups", async () => {
+    const sb = supabaseAdmin();
+    const cutoff = daysAgo(CLEANUP_POLICY.FOLLOW_UPS_DAYS);
+    const { data, error } = await sb
+      .from("follow_ups")
+      .delete()
+      .neq("status", "pending")
+      .lt("created_at", cutoff)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { removed: data?.length ?? 0, detail: { cutoff } };
+  });
+}
+
+/**
+ * Deleta handoff_escalations terminais (fired/cancelled) com created_at < cutoff.
+ *
+ * `pending` é preservado pela mesma razão do follow_ups: o cron de execução
+ * depende dessas rows. Em condições normais nenhuma escalação fica pending
+ * mais que alguns minutos, então o filtro não deve encontrar pendentes antigos
+ * — mas se encontrar, é sinal de bug e a gente não quer esconder.
+ */
+export async function cleanupHandoffEscalations(): Promise<CleanupResult> {
+  return timed("handoff_escalations", async () => {
+    const sb = supabaseAdmin();
+    const cutoff = daysAgo(CLEANUP_POLICY.HANDOFF_ESCALATIONS_DAYS);
+    const { data, error } = await sb
+      .from("handoff_escalations")
+      .delete()
+      .neq("status", "pending")
+      .lt("created_at", cutoff)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { removed: data?.length ?? 0, detail: { cutoff } };
+  });
+}
+
 /** Deleta copilot_turns com created_at < cutoff. */
 export async function cleanupCopilotTurns(): Promise<CleanupResult> {
   return timed("copilot_turns", async () => {
@@ -377,6 +432,8 @@ export async function runAllCleanup(): Promise<{
   results.push(await cleanupAiUsageLog());
   results.push(await cleanupCopilotTurns());
   results.push(await cleanupDraftsTable());
+  results.push(await cleanupFollowUps());
+  results.push(await cleanupHandoffEscalations());
   results.push(await cleanupMediaStorage());
   results.push(await cleanupStaleBridges());
   results.push(await cleanupInactiveLeads());

@@ -24,6 +24,10 @@ type StateSnapshot = {
   copilotCount: number;
   draftsTableOldest: string | null;
   draftsTableCount: number;
+  followUpsOldest: string | null;
+  followUpsTerminalCount: number;
+  handoffEscOldest: string | null;
+  handoffEscTerminalCount: number;
   draftFolders: number;
   inactiveLeadCandidates: number;
 };
@@ -34,23 +38,56 @@ async function loadState(): Promise<StateSnapshot> {
     Date.now() - CLEANUP_POLICY.INACTIVE_LEAD_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const [aiOldestQ, aiCountQ, cpOldestQ, cpCountQ, dtOldestQ, dtCountQ, draftsQ, inactiveQ] =
-    await Promise.all([
-      sb.from("ai_usage_log").select("created_at").order("created_at", { ascending: true }).limit(1),
-      sb.from("ai_usage_log").select("*", { count: "exact", head: true }),
-      sb.from("copilot_turns").select("created_at").order("created_at", { ascending: true }).limit(1),
-      sb.from("copilot_turns").select("*", { count: "exact", head: true }),
-      sb.from("drafts").select("created_at").order("created_at", { ascending: true }).limit(1),
-      sb.from("drafts").select("*", { count: "exact", head: true }),
-      sb.storage.from("empreendimentos").list("draft", { limit: 1000 }),
-      sb
-        .from("leads")
-        .select("*", { count: "exact", head: true })
-        .or(`last_message_at.lt.${inactiveCutoff},last_message_at.is.null`)
-        .not("status", "in", "(qualified,scheduled,won)")
-        .eq("bridge_active", false)
-        .lt("created_at", inactiveCutoff),
-    ]);
+  const [
+    aiOldestQ,
+    aiCountQ,
+    cpOldestQ,
+    cpCountQ,
+    dtOldestQ,
+    dtCountQ,
+    fuOldestQ,
+    fuCountQ,
+    heOldestQ,
+    heCountQ,
+    draftsQ,
+    inactiveQ,
+  ] = await Promise.all([
+    sb.from("ai_usage_log").select("created_at").order("created_at", { ascending: true }).limit(1),
+    sb.from("ai_usage_log").select("*", { count: "exact", head: true }),
+    sb.from("copilot_turns").select("created_at").order("created_at", { ascending: true }).limit(1),
+    sb.from("copilot_turns").select("*", { count: "exact", head: true }),
+    sb.from("drafts").select("created_at").order("created_at", { ascending: true }).limit(1),
+    sb.from("drafts").select("*", { count: "exact", head: true }),
+    // Só rows terminais (pending não é candidato a cleanup).
+    sb
+      .from("follow_ups")
+      .select("created_at")
+      .neq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(1),
+    sb
+      .from("follow_ups")
+      .select("*", { count: "exact", head: true })
+      .neq("status", "pending"),
+    sb
+      .from("handoff_escalations")
+      .select("created_at")
+      .neq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(1),
+    sb
+      .from("handoff_escalations")
+      .select("*", { count: "exact", head: true })
+      .neq("status", "pending"),
+    sb.storage.from("empreendimentos").list("draft", { limit: 1000 }),
+    sb
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .or(`last_message_at.lt.${inactiveCutoff},last_message_at.is.null`)
+      .not("status", "in", "(qualified,scheduled,won)")
+      .eq("bridge_active", false)
+      .lt("created_at", inactiveCutoff),
+  ]);
 
   return {
     aiUsageOldest: aiOldestQ.data?.[0]?.created_at ?? null,
@@ -59,6 +96,10 @@ async function loadState(): Promise<StateSnapshot> {
     copilotCount: cpCountQ.count ?? 0,
     draftsTableOldest: dtOldestQ.data?.[0]?.created_at ?? null,
     draftsTableCount: dtCountQ.count ?? 0,
+    followUpsOldest: fuOldestQ.data?.[0]?.created_at ?? null,
+    followUpsTerminalCount: fuCountQ.count ?? 0,
+    handoffEscOldest: heOldestQ.data?.[0]?.created_at ?? null,
+    handoffEscTerminalCount: heCountQ.count ?? 0,
     draftFolders: draftsQ.data?.length ?? 0,
     inactiveLeadCandidates: inactiveQ.count ?? 0,
   };
@@ -174,6 +215,20 @@ export default async function CleanupPage() {
       policy: `> ${CLEANUP_POLICY.DRAFTS_TABLE_DAYS} dias`,
       current: `${state.draftsTableCount} linha(s), mais antiga: ${daysAgo(state.draftsTableOldest)}`,
       health: healthBadge(actualDays(state.draftsTableOldest), CLEANUP_POLICY.DRAFTS_TABLE_DAYS),
+    },
+    {
+      task: "follow_ups (terminais)",
+      detail: "sent/cancelled/failed (pending é preservado indefinidamente)",
+      policy: `> ${CLEANUP_POLICY.FOLLOW_UPS_DAYS} dias`,
+      current: `${state.followUpsTerminalCount} linha(s), mais antiga: ${daysAgo(state.followUpsOldest)}`,
+      health: healthBadge(actualDays(state.followUpsOldest), CLEANUP_POLICY.FOLLOW_UPS_DAYS),
+    },
+    {
+      task: "handoff_escalations (terminais)",
+      detail: "fired/cancelled (pending é preservado pro cron executar)",
+      policy: `> ${CLEANUP_POLICY.HANDOFF_ESCALATIONS_DAYS} dias`,
+      current: `${state.handoffEscTerminalCount} linha(s), mais antiga: ${daysAgo(state.handoffEscOldest)}`,
+      health: healthBadge(actualDays(state.handoffEscOldest), CLEANUP_POLICY.HANDOFF_ESCALATIONS_DAYS),
     },
     {
       task: "Leads inativos (LGPD)",
