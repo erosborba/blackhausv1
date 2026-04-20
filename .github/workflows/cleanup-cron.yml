@@ -37,6 +37,26 @@ jobs:
             exit 1
           fi
 
+          # Sanitiza: remove whitespace/newlines e barra final.
+          APP_URL_CLEAN="$(printf '%s' "$APP_URL" | tr -d '[:space:]' | sed 's:/*$::')"
+
+          # Auto-prepend https:// se o usuário esqueceu o protocolo (causa comum
+          # de "curl (3) URL rejected: Malformed input").
+          case "$APP_URL_CLEAN" in
+            http://*|https://*) ;;
+            *) APP_URL_CLEAN="https://${APP_URL_CLEAN}" ;;
+          esac
+
+          # Valida formato mínimo antes de chamar curl (mascara em log pra não
+          # vazar URL — GH já masca secret mas preferimos log limpo).
+          if ! printf '%s' "$APP_URL_CLEAN" | grep -Eq '^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$'; then
+            echo "::error::APP_URL inválido depois da sanitização (esperado 'https://<host>')"
+            exit 1
+          fi
+
+          TARGET="${APP_URL_CLEAN}/api/cron/cleanup"
+          echo "Disparando cleanup (host: $(printf '%s' "$APP_URL_CLEAN" | sed 's|https\?://||' | cut -d/ -f1))"
+
           # -sS: silent + show errors; --fail-with-body: falha em 4xx/5xx mas imprime o body.
           # Timeout generoso (cleanup pode varrer storage, levar minutos).
           curl -sS --fail-with-body \
@@ -44,5 +64,5 @@ jobs:
             -X POST \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -H "Content-Type: application/json" \
-            "${APP_URL}/api/cron/cleanup"
+            "$TARGET"
           echo ""
