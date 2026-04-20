@@ -36,7 +36,9 @@ export default async function Page() {
         <a href="/admin/empreendimentos" style={navBtn}>Empreendimentos</a>
         <a href="/admin/empreendimentos/new" style={navBtn}>+ Novo empreendimento</a>
         <a href="/admin/drafts" style={navBtn}>Drafts</a>
+        <a href="/admin/follow-ups" style={navBtn}>Follow-ups</a>
         <a href="/admin/usage" style={navBtn}>Uso de IA</a>
+        <a href="/admin/configuracoes" style={navBtn}>Configurações</a>
         <a href="/admin/cleanup" style={navBtn}>Manutenção</a>
       </nav>
 

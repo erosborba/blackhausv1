@@ -20,6 +20,7 @@ import {
 import { brokerCopilot } from "@/lib/copilot";
 import { findLatestProposed, markDraftActed, recordDraft } from "@/lib/drafts";
 import { supabaseAdmin } from "@/lib/supabase";
+import { cancelFollowUpsForLead } from "@/lib/follow-ups";
 
 const HELP_TEXT = `👋 Comandos:
 • Responder (quote) uma notificação/mensagem minha → eu repasso pro lead.
@@ -207,6 +208,11 @@ async function handleOne(it: any) {
     evolutionMessageId: messageId,
     evolutionEvent: it,
   });
+
+  // Lead voltou a falar → cancela qualquer follow-up pending (best-effort).
+  cancelFollowUpsForLead(lead.id, "lead_replied").catch((e) =>
+    console.error("[webhook] cancelFollowUps", e),
+  );
 
   // Ponte ativa OU corretor já notificado (aguardando) OU ponte fechada por /fim.
   if (lead.assigned_agent_id && (lead.bridge_active || lead.human_takeover)) {

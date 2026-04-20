@@ -11,6 +11,7 @@ import { appendMessage, updateLead } from "./leads";
 import { cancelEscalation, recoverEscalations, scheduleEscalation } from "./handoffQueue";
 import { brPhoneVariants } from "./phone";
 import { getSettingNumber } from "./settings";
+import { cancelFollowUpsForLead } from "./follow-ups";
 
 /**
  * Orquestração do handoff WhatsApp (corretor ↔ Bia ↔ lead).
@@ -94,6 +95,11 @@ export async function initiateHandoff(leadId: string, reason = "lead pediu human
     console.warn("[handoff] initiate: nenhum corretor ativo");
     return;
   }
+
+  // Handoff iniciado → cancela follow-ups (corretor humano assume).
+  cancelFollowUpsForLead(leadId, "handoff_initiated").catch((e) =>
+    console.error("[handoff] cancelFollowUps (initiate)", e),
+  );
 
   await notifyAgentAndSchedule({
     agent,
@@ -205,6 +211,9 @@ async function notifyAgentAndSchedule(args: {
 
 export async function openBridge(leadId: string, agentId: string) {
   await cancelEscalation(leadId);
+  cancelFollowUpsForLead(leadId, "bridge_opened").catch((e) =>
+    console.error("[handoff] cancelFollowUps (openBridge)", e),
+  );
   await updateLead(leadId, {
     bridge_active: true,
     assigned_agent_id: agentId,
