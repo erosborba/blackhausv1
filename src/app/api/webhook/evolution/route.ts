@@ -15,6 +15,7 @@ import {
   leadIdFromRef,
   openBridge,
   parseLeadRefFromQuote,
+  recoverHandoffEscalations,
 } from "@/lib/handoff";
 import { brokerCopilot } from "@/lib/copilot";
 import { findLatestProposed, markDraftActed, recordDraft } from "@/lib/drafts";
@@ -59,6 +60,11 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
+
+  // Restaura timers de escalação pendentes após restart (idempotente)
+  recoverHandoffEscalations().catch((e) =>
+    console.error("[webhook] recoverHandoffEscalations", e),
+  );
 
   const event: string | undefined = payload?.event ?? payload?.type;
   const data = payload?.data ?? payload;
@@ -238,7 +244,7 @@ async function handleOne(it: any) {
     text,
     sendTarget,
     flush: runAgentTurn,
-  });
+  }).catch((e) => console.error("[webhook] scheduleInbound", e));
 }
 
 async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget: string }) {

@@ -8,8 +8,9 @@ import {
   type Agent,
 } from "./agents";
 import { appendMessage, updateLead } from "./leads";
-import { cancelEscalation, scheduleEscalation } from "./handoffQueue";
+import { cancelEscalation, recoverEscalations, scheduleEscalation } from "./handoffQueue";
 import { brPhoneVariants } from "./phone";
+import { getSettingNumber } from "./settings";
 
 /**
  * Orquestração do handoff WhatsApp (corretor ↔ Bia ↔ lead).
@@ -71,6 +72,11 @@ Responda esta mensagem pra falar com ele (a Bia repassa).
 lead: ${args.leadPhone}`;
 }
 
+/** Restaura timers de escalação após restart. Chame no início do webhook handler. */
+export async function recoverHandoffEscalations(): Promise<void> {
+  await recoverEscalations(escalateHandoff);
+}
+
 export async function initiateHandoff(leadId: string, reason = "lead pediu humano") {
   const sb = supabaseAdmin();
   const { data: lead, error } = await sb
@@ -113,6 +119,13 @@ export async function escalateHandoff(leadId: string) {
     return;
   }
   if (lead.bridge_active) return;
+
+  const maxAttempts = await getSettingNumber("handoff_max_attempts", 3);
+  if ((lead.handoff_attempts ?? 0) >= maxAttempts) {
+    console.warn("[handoff] escalate: máximo de tentativas atingido", leadId);
+    await updateLead(leadId, { stage: "handoff_stuck" });
+    return;
+  }
 
   const excludeIds: string[] = lead.assigned_agent_id ? [lead.assigned_agent_id] : [];
   const next = await nextInRotation(excludeIds);
@@ -186,15 +199,12 @@ async function notifyAgentAndSchedule(args: {
     console.error("[handoff] markAssigned FAILED:", e);
   }
 
-  scheduleEscalation({
-    leadId: args.leadId,
-    onEscalate: escalateHandoff,
-  });
+  await scheduleEscalation(args.leadId, escalateHandoff);
   console.log("[handoff] escalation scheduled for", args.leadId);
 }
 
 export async function openBridge(leadId: string, agentId: string) {
-  cancelEscalation(leadId);
+  await cancelEscalation(leadId);
   await updateLead(leadId, {
     bridge_active: true,
     assigned_agent_id: agentId,
@@ -204,7 +214,7 @@ export async function openBridge(leadId: string, agentId: string) {
 }
 
 export async function closeBridge(leadId: string) {
-  cancelEscalation(leadId);
+  await cancelEscalation(leadId);
   const sb = supabaseAdmin();
   const { data } = await sb
     .from("leads")

@@ -7,6 +7,7 @@ import type { Qualification } from "@/lib/leads";
 import { env } from "@/lib/env";
 import { langchainAnthropicUsage, logUsage } from "@/lib/ai-usage";
 import { getRecentDraftEdits } from "@/lib/draft-learnings";
+import { getSettingNumber } from "@/lib/settings";
 
 /**
  * Threshold de confiança do retrieval semântico.
@@ -19,7 +20,7 @@ import { getRecentDraftEdits } from "@/lib/draft-learnings";
  * Se ajustar, mexer aqui e observar o log de bia_answer:
  *   has_retrieved=true + retrievedConfidence="weak" = candidate a revisar.
  */
-const RAG_STRONG_THRESHOLD = 0.55;
+const RAG_STRONG_THRESHOLD_DEFAULT = 0.55;
 
 const REQUIRED_FIELDS: (keyof Qualification)[] = [
   "tipo",
@@ -128,6 +129,7 @@ export async function retrieveNode(state: SDRStateType) {
   let confidence: "strong" | "weak" | "none" = "none";
 
   if (state.intent === "duvida_empreendimento" && userText) {
+    const ragThreshold = await getSettingNumber("rag_strong_threshold", RAG_STRONG_THRESHOLD_DEFAULT);
     const r = await searchSemantic(userText, 5);
     context = r.text;
     if (!context) {
@@ -137,7 +139,7 @@ export async function retrieveNode(state: SDRStateType) {
       // forçar a Bia a ser conservadora em dúvidas específicas.
       confidence = "weak";
     } else {
-      confidence = r.topScore >= RAG_STRONG_THRESHOLD ? "strong" : "weak";
+      confidence = r.topScore >= ragThreshold ? "strong" : "weak";
     }
   } else if (state.intent === "qualificar" || state.intent === "agendar" || state.intent === "saudacao") {
     context = await searchByQualification(state.qualification, 5);

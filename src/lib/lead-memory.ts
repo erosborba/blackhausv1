@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { env } from "./env";
 import { supabaseAdmin } from "./supabase";
 import { anthropicUsage, logUsage } from "./ai-usage";
+import { getSettingNumber } from "./settings";
 
 /**
  * Memória persistente do lead (Fatia I).
@@ -73,15 +74,16 @@ export type RefreshResult =
  * Primeira vez (`memory_updated_at` nulo) dispara depois de 3 msgs (suficiente
  * pra ter sinal — menos que isso é ruído).
  */
-export function shouldRefreshMemory(args: {
+export async function shouldRefreshMemory(args: {
   memory_updated_at: string | null;
   memory_msg_count: number;
   total_msg_count: number;
-}): boolean {
+}): Promise<boolean> {
   const { memory_updated_at, memory_msg_count, total_msg_count } = args;
   if (total_msg_count < 3) return false; // ruído
   if (!memory_updated_at) return total_msg_count >= 3;
-  return total_msg_count - memory_msg_count >= MEMORY_REFRESH_EVERY;
+  const every = await getSettingNumber("memory_refresh_every", MEMORY_REFRESH_EVERY);
+  return total_msg_count - memory_msg_count >= every;
 }
 
 /**
@@ -122,11 +124,11 @@ export async function refreshLeadMemory(leadId: string): Promise<RefreshResult> 
   const lead = leadQ.data;
 
   if (
-    !shouldRefreshMemory({
+    !(await shouldRefreshMemory({
       memory_updated_at: lead.memory_updated_at,
       memory_msg_count: lead.memory_msg_count ?? 0,
       total_msg_count: totalMsgs,
-    })
+    }))
   ) {
     return { ok: true, memory: lead.memory ?? "", refreshed: false, reason: "not_due" };
   }

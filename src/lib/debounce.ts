@@ -1,4 +1,5 @@
 import type { Lead } from "@/lib/leads";
+import { getSettingNumber } from "./settings";
 
 export type FlushHandler = (args: {
   lead: Lead;
@@ -14,22 +15,23 @@ type Pending = {
 };
 
 const pending = new Map<string, Pending>();
-const DEBOUNCE_MS = Number(process.env.INBOUND_DEBOUNCE_MS ?? 4000);
+const DEBOUNCE_MS_FALLBACK = Number(process.env.INBOUND_DEBOUNCE_MS ?? 4000);
 
 /**
- * Bufferiza mensagens do mesmo lead numa janela de DEBOUNCE_MS.
+ * Bufferiza mensagens do mesmo lead numa janela de debounce.
  * Cada mensagem nova reseta o timer; quando o timer estoura, flush recebe o
  * texto concatenado (separado por \n) e a última sendTarget/lead vistas.
  *
  * Estado in-memory: funciona pq Railway roda single Node process.
  * Se migrar pra serverless multi-instância, trocar por Redis ou Postgres.
  */
-export function scheduleInbound(args: {
+export async function scheduleInbound(args: {
   lead: Lead;
   text: string;
   sendTarget: string;
   flush: FlushHandler;
-}) {
+}): Promise<void> {
+  const debounceMs = await getSettingNumber("inbound_debounce_ms", DEBOUNCE_MS_FALLBACK);
   const key = args.lead.id;
   const existing = pending.get(key);
   const buffer = existing ? [...existing.buffer, args.text] : [args.text];
@@ -47,7 +49,7 @@ export function scheduleInbound(args: {
     } catch (e) {
       console.error("[debounce] flush error", e);
     }
-  }, DEBOUNCE_MS);
+  }, debounceMs);
 
   pending.set(key, { buffer, timer, sendTarget: args.sendTarget, lead: args.lead });
 }
