@@ -10,6 +10,10 @@ export type Message = {
   role: "user" | "assistant" | "system" | "tool";
   content: string;
   created_at: string;
+  media_type?: "audio" | "image" | "video" | null;
+  media_path?: string | null;
+  media_mime?: string | null;
+  media_duration_ms?: number | null;
 };
 
 export type Lead = {
@@ -82,6 +86,111 @@ const sideValue: CSSProperties = {
 function formatTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+const mediaChip: CSSProperties = {
+  display: "inline-block",
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: 0.5,
+  textTransform: "uppercase",
+  background: "rgba(255,255,255,0.08)",
+  color: "#c9c9d1",
+  padding: "2px 8px",
+  borderRadius: 4,
+  marginBottom: 6,
+};
+
+function MediaChip({ message }: { message: Message }) {
+  const emoji =
+    message.media_type === "audio" ? "🎤" : message.media_type === "image" ? "🖼️" : "🎥";
+  const label =
+    message.media_type === "audio" ? "áudio" : message.media_type === "image" ? "imagem" : "vídeo";
+  const dur =
+    message.media_duration_ms && message.media_type === "audio"
+      ? ` · ${Math.round(message.media_duration_ms / 1000)}s`
+      : "";
+  return (
+    <div style={mediaChip}>
+      {emoji} {label}
+      {dur}
+    </div>
+  );
+}
+
+function MediaPlayer({ message }: { message: Message }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    if (loading || url) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/media?path=${encodeURIComponent(message.media_path!)}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "erro");
+      setUrl(json.url as string);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    // Imagem carrega automaticamente (é visual); áudio/vídeo só on demand.
+    if (message.media_type === "image") load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id]);
+
+  if (message.media_type === "image") {
+    if (loading)
+      return <div style={{ fontSize: 12, color: "#8f8f9a", marginTop: 6 }}>Carregando imagem…</div>;
+    if (error)
+      return <div style={{ fontSize: 12, color: "#f87171", marginTop: 6 }}>Erro: {error}</div>;
+    if (!url) return null;
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 8 }}>
+        <img
+          src={url}
+          alt="imagem enviada"
+          style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, display: "block" }}
+        />
+      </a>
+    );
+  }
+
+  if (message.media_type === "audio") {
+    if (!url) {
+      return (
+        <button
+          onClick={load}
+          disabled={loading}
+          style={{
+            marginTop: 8,
+            fontSize: 12,
+            padding: "4px 10px",
+            borderRadius: 6,
+            border: "1px solid #3a3a45",
+            background: "transparent",
+            color: "#c9c9d1",
+            cursor: "pointer",
+          }}
+        >
+          {loading ? "Carregando…" : error ? `Erro: ${error}` : "▶︎ Ouvir áudio"}
+        </button>
+      );
+    }
+    return (
+      <audio controls src={url} style={{ marginTop: 8, maxWidth: 260, display: "block" }}>
+        áudio
+      </audio>
+    );
+  }
+
+  return null;
 }
 
 function renderQualification(q: Record<string, unknown>) {
@@ -367,7 +476,11 @@ export function ThreadClient({
                       alignItems: m.direction === "inbound" ? "flex-start" : "flex-end",
                     }}
                   >
-                    <div style={bubble(m.direction)}>{m.content}</div>
+                    <div style={bubble(m.direction)}>
+                      {m.media_type ? <MediaChip message={m} /> : null}
+                      <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>
+                      {m.media_path ? <MediaPlayer message={m} /> : null}
+                    </div>
                     <div style={metaLine}>
                       {m.direction === "inbound" ? name : "Bia"} · {formatTime(m.created_at)}
                     </div>

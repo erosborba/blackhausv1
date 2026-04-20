@@ -11,7 +11,7 @@ async function loadLead(id: string) {
     sb.from("leads").select("*").eq("id", id).maybeSingle(),
     sb
       .from("messages")
-      .select("id, direction, role, content, created_at")
+      .select("id, direction, role, content, created_at, media_type, media_path, media_mime, media_duration_ms")
       .eq("lead_id", id)
       .order("created_at", { ascending: true })
       .limit(200),

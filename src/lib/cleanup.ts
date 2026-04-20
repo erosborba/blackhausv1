@@ -180,6 +180,64 @@ export async function cleanupDraftsTable(): Promise<CleanupResult> {
 }
 
 /**
+ * Apaga blobs de `messages-media` com `created_at` > `media_retention_days`
+ * (default 30). Lista no bucket e deleta em lote. Não mexe na tabela
+ * `messages` — lá só limpamos o `media_path` pra refletir que o blob sumiu.
+ */
+export async function cleanupMediaStorage(): Promise<CleanupResult> {
+  return timed("media_storage", async () => {
+    const sb = supabaseAdmin();
+    const days = await getSettingNumber("media_retention_days", 30);
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    const toDelete: string[] = [];
+    // Listar em cada prefixo (audio/, image/, video/) — estrutura flat.
+    for (const prefix of ["audio", "image", "video"] as const) {
+      const { data: files, error } = await sb.storage
+        .from("messages-media")
+        .list(prefix, { limit: 1000, sortBy: { column: "created_at", order: "asc" } });
+      if (error) {
+        console.warn(`[cleanup:media_storage] list ${prefix}/:`, error.message);
+        continue;
+      }
+      for (const f of files ?? []) {
+        const createdAt = f.created_at ? new Date(f.created_at).getTime() : null;
+        if (createdAt !== null && createdAt < cutoff) {
+          toDelete.push(`${prefix}/${f.name}`);
+        }
+      }
+    }
+
+    if (!toDelete.length) return { removed: 0, detail: { days } };
+
+    let removed = 0;
+    for (let i = 0; i < toDelete.length; i += 100) {
+      const chunk = toDelete.slice(i, i + 100);
+      const { error } = await sb.storage.from("messages-media").remove(chunk);
+      if (error) {
+        console.warn(`[cleanup:media_storage] remove:`, error.message);
+        continue;
+      }
+      removed += chunk.length;
+    }
+
+    // Limpa media_path nas messages onde o blob já foi apagado. Mantém
+    // media_type pra UI continuar mostrando "áudio enviado" sem player.
+    if (removed > 0) {
+      await sb
+        .from("messages")
+        .update({ media_path: null })
+        .in("media_path", toDelete)
+        .then(({ error }) => {
+          if (error) console.warn("[cleanup:media_storage] update messages:", error.message);
+        });
+    }
+
+    return { removed, detail: { days, attempted: toDelete.length } };
+  });
+}
+
+/**
  * Fecha pontes abertas (`bridge_active=true`) onde o lead não trocou
  * nenhuma mensagem há mais de `bridge_stale_hours`. Usado pra destravar
  * leads quando o corretor esquece de mandar /fim.
@@ -319,6 +377,7 @@ export async function runAllCleanup(): Promise<{
   results.push(await cleanupAiUsageLog());
   results.push(await cleanupCopilotTurns());
   results.push(await cleanupDraftsTable());
+  results.push(await cleanupMediaStorage());
   results.push(await cleanupStaleBridges());
   results.push(await cleanupInactiveLeads());
 

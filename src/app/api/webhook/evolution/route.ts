@@ -21,6 +21,16 @@ import { brokerCopilot } from "@/lib/copilot";
 import { findLatestProposed, markDraftActed, recordDraft } from "@/lib/drafts";
 import { supabaseAdmin } from "@/lib/supabase";
 import { cancelFollowUpsForLead } from "@/lib/follow-ups";
+import {
+  describeImage,
+  detectMedia,
+  downloadFromEvolution,
+  enforceMaxSize,
+  transcribeAudio,
+  uploadMedia,
+  type DetectedMedia,
+} from "@/lib/media";
+import { getSetting } from "@/lib/settings";
 
 const HELP_TEXT = `👋 Comandos:
 • Responder (quote) uma notificação/mensagem minha → eu repasso pro lead.
@@ -156,9 +166,35 @@ async function handleOne(it: any) {
   }
 
   const innerMessage = message?.message ?? message;
-  const text = extractText(innerMessage);
-  if (!text || text.trim().length === 0) return;
+  const initialText = extractText(innerMessage);
   const quotedText = extractQuotedText(innerMessage, it);
+
+  // ── Pré-processamento de mídia (áudio/imagem) ──
+  // Se áudio: transcrição vira o texto. Se imagem: descrição + caption vira
+  // o texto. Se ambos falharem, o auto-reply cuida — não vai pro agent.
+  const detected = detectMedia(innerMessage);
+  let text = initialText;
+  let mediaInfo: MediaProcessResult | null = null;
+  if (detected && messageId) {
+    mediaInfo = await processIncomingMedia({
+      evolutionMessageId: messageId,
+      detected,
+    });
+    if (mediaInfo.text) text = mediaInfo.text;
+  }
+
+  if (!text || text.trim().length === 0) {
+    if (mediaInfo?.fallbackReply) {
+      await dispatchMediaFallback({
+        it,
+        innerMessage,
+        pushName,
+        mediaInfo,
+        evolutionMessageId: messageId,
+      });
+    }
+    return;
+  }
 
   // Resolve @lid → JID real.
   let realJid: string = remoteJid;
@@ -207,6 +243,10 @@ async function handleOne(it: any) {
     content: text,
     evolutionMessageId: messageId,
     evolutionEvent: it,
+    mediaType: mediaInfo?.type ?? null,
+    mediaPath: mediaInfo?.path ?? null,
+    mediaMime: mediaInfo?.mime ?? null,
+    mediaDurationMs: mediaInfo?.durationMs ?? null,
   });
 
   // Lead voltou a falar → cancela qualquer follow-up pending (best-effort).
@@ -561,6 +601,197 @@ function parseDraftBody(quotedText: string): string | null {
     .slice(instructionIdx + 1, footerIdx)
     .join("\n")
     .trim();
+}
+
+// ============================================================
+// Multimodal pipeline
+// ============================================================
+
+type MediaProcessResult = {
+  type: "audio" | "image" | "video";
+  mime: string;
+  path: string | null;
+  durationMs: number | null;
+  text: string | null;
+  fallbackReply: string | null;
+};
+
+/**
+ * Baixa mídia do Evolution, sobe pro storage, transcreve/descreve.
+ * Em falha preenche `fallbackReply` pra auto-resposta ao lead.
+ */
+async function processIncomingMedia(args: {
+  evolutionMessageId: string;
+  detected: DetectedMedia;
+}): Promise<MediaProcessResult> {
+  const { detected, evolutionMessageId } = args;
+  const result: MediaProcessResult = {
+    type: detected.type,
+    mime: detected.mime,
+    path: null,
+    durationMs: detected.durationMs ?? null,
+    text: null,
+    fallbackReply: null,
+  };
+
+  // Gate global por setting
+  if (detected.type === "audio") {
+    const enabled = (await getSetting("media_audio_enabled", "true")) === "true";
+    if (!enabled) {
+      result.fallbackReply =
+        "Ainda não consigo ouvir áudios por aqui. Pode escrever o que você queria? 🙂";
+      return result;
+    }
+  }
+  if (detected.type === "image") {
+    const enabled = (await getSetting("media_image_enabled", "true")) === "true";
+    if (!enabled) {
+      // Se tem caption, usa só ela; senão fallback
+      if (detected.caption) {
+        result.text = detected.caption;
+        return result;
+      }
+      result.fallbackReply =
+        "Imagens estão desligadas por aqui. Pode me contar em texto o que tinha na foto?";
+      return result;
+    }
+  }
+
+  let buffer: Buffer;
+  try {
+    buffer = await downloadFromEvolution(evolutionMessageId);
+    await enforceMaxSize(buffer);
+  } catch (e) {
+    console.error("[webhook] media download/size:", e instanceof Error ? e.message : e);
+    result.fallbackReply =
+      detected.type === "audio"
+        ? "Não consegui baixar seu áudio aqui. Pode reenviar ou escrever em texto?"
+        : "Não consegui abrir essa imagem. Pode reenviar ou me contar em texto?";
+    return result;
+  }
+
+  // Upload independente do sucesso da IA — assim sempre sobra replay no admin.
+  // NOTE: usamos evolutionMessageId como identidade no path (estável, único).
+  try {
+    result.path = await uploadMedia({
+      messageId: evolutionMessageId,
+      type: detected.type,
+      mime: detected.mime,
+      buffer,
+    });
+  } catch (e) {
+    console.error("[webhook] media upload:", e instanceof Error ? e.message : e);
+    // não fatal — seguimos sem storage se só o upload falhou
+  }
+
+  if (detected.type === "audio") {
+    try {
+      const transcript = await transcribeAudio({
+        buffer,
+        mime: detected.mime,
+        durationMs: detected.durationMs ?? null,
+      });
+      result.text = `🎤 ${transcript}`;
+    } catch (e) {
+      console.error("[webhook] transcribe:", e instanceof Error ? e.message : e);
+      result.fallbackReply =
+        "Não consegui entender seu áudio agora. Pode escrever em texto pra eu te ajudar?";
+    }
+    return result;
+  }
+
+  if (detected.type === "image") {
+    try {
+      const desc = await describeImage({
+        buffer,
+        mime: detected.mime,
+        caption: detected.caption ?? null,
+      });
+      // Inclui caption original se houver + descrição
+      result.text = detected.caption
+        ? `🖼️ (imagem) ${detected.caption}\n\n[descrição automática: ${desc}]`
+        : `🖼️ [imagem sem legenda — descrição automática: ${desc}]`;
+    } catch (e) {
+      console.error("[webhook] vision:", e instanceof Error ? e.message : e);
+      // Se o lead mandou caption, ainda dá pra seguir sem vision
+      if (detected.caption) {
+        result.text = `🖼️ (imagem) ${detected.caption}`;
+      } else {
+        result.fallbackReply =
+          "Recebi a imagem mas não consegui processar. Pode me contar brevemente o que tem nela?";
+      }
+    }
+    return result;
+  }
+
+  // video: sem transcrição nessa fase. Só usa caption se tiver.
+  if (detected.caption) {
+    result.text = `🎥 (vídeo) ${detected.caption}`;
+  } else {
+    result.fallbackReply =
+      "Recebi seu vídeo mas ainda não consigo assistir por aqui. Pode me contar em texto?";
+  }
+  return result;
+}
+
+/**
+ * Envia resposta automática quando a mídia não pôde ser processada. Também
+ * grava o evento bruto na tabela messages (com `media_type` mas `content`
+ * genérico) pra a conversa ter contexto se o corretor olhar depois.
+ */
+async function dispatchMediaFallback(args: {
+  it: any;
+  innerMessage: any;
+  pushName: string | undefined;
+  mediaInfo: MediaProcessResult;
+  evolutionMessageId: string | undefined;
+}) {
+  const { it, mediaInfo, evolutionMessageId } = args;
+  const key = it?.key ?? it?.message?.key;
+  const remoteJid: string | undefined = key?.remoteJid;
+  if (!remoteJid) return;
+
+  let realJid = remoteJid;
+  if (remoteJid.endsWith("@lid")) {
+    realJid = key?.remoteJidAlt || key?.senderPn || key?.participantPn || remoteJid;
+  }
+  const phone = jidToPhone(realJid);
+  if (!phone || phone.length < 8) return;
+  const sendTarget = realJid.endsWith("@lid") ? realJid : phone;
+
+  // Não responde a corretor com fallback de mídia
+  if (await isAgentPhone(phone)) return;
+
+  const lead = await upsertLead(phone, args.pushName);
+  const placeholder =
+    mediaInfo.type === "audio"
+      ? "🎤 [áudio que não pôde ser transcrito]"
+      : mediaInfo.type === "image"
+      ? "🖼️ [imagem que não pôde ser processada]"
+      : "🎥 [vídeo recebido]";
+
+  await appendMessage({
+    leadId: lead.id,
+    direction: "inbound",
+    role: "user",
+    content: placeholder,
+    evolutionMessageId,
+    evolutionEvent: it,
+    mediaType: mediaInfo.type,
+    mediaPath: mediaInfo.path,
+    mediaMime: mediaInfo.mime,
+    mediaDurationMs: mediaInfo.durationMs,
+  });
+
+  if (mediaInfo.fallbackReply) {
+    await sendText({ to: sendTarget, text: mediaInfo.fallbackReply, delayMs: 900 });
+    await appendMessage({
+      leadId: lead.id,
+      direction: "outbound",
+      role: "assistant",
+      content: mediaInfo.fallbackReply,
+    });
+  }
 }
 
 export function GET() {

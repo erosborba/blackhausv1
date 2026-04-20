@@ -62,6 +62,10 @@ export async function appendMessage(args: {
   content: string;
   evolutionMessageId?: string;
   evolutionEvent?: unknown;
+  mediaType?: "audio" | "image" | "video" | null;
+  mediaPath?: string | null;
+  mediaMime?: string | null;
+  mediaDurationMs?: number | null;
 }) {
   const sb = supabaseAdmin();
   const { error } = await sb.from("messages").insert({
@@ -71,6 +75,10 @@ export async function appendMessage(args: {
     content: args.content,
     evolution_message_id: args.evolutionMessageId,
     evolution_event: args.evolutionEvent,
+    media_type: args.mediaType ?? null,
+    media_path: args.mediaPath ?? null,
+    media_mime: args.mediaMime ?? null,
+    media_duration_ms: args.mediaDurationMs ?? null,
   });
   if (error) {
     // 23505 = unique_violation no índice de evolution_message_id.
