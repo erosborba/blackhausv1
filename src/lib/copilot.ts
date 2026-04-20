@@ -210,8 +210,8 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
       return capToolResult(result || "(nenhum empreendimento bateu com os filtros)");
     }
     if (name === "buscar_empreendimentos_semantico") {
-      const result = await searchSemantic(String(input.pergunta ?? ""), 4);
-      return capToolResult(result || "(nenhum resultado)");
+      const { text } = await searchSemantic(String(input.pergunta ?? ""), 4);
+      return capToolResult(text || "(nenhum resultado)");
     }
     if (name === "ver_lead") {
       const phone = String(input.telefone ?? "");

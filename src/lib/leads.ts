@@ -30,6 +30,9 @@ export type Lead = {
   bridge_active?: boolean;
   handoff_notified_at?: string | null;
   handoff_attempts?: number;
+  memory?: string | null;
+  memory_updated_at?: string | null;
+  memory_msg_count?: number;
 };
 
 export async function upsertLead(phone: string, pushName?: string): Promise<Lead> {

@@ -5,6 +5,7 @@ import { appendMessage, updateLead, upsertLead, type Lead } from "@/lib/leads";
 import { runSDR } from "@/agent/graph";
 import { scheduleInbound } from "@/lib/debounce";
 import { generateBrief } from "@/lib/brief";
+import { refreshLeadMemoryAsync } from "@/lib/lead-memory";
 import { getAgentByPhone, isAgentPhone } from "@/lib/agents";
 import {
   closeBridge,
@@ -265,6 +266,12 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
     status: needsHandoff ? "qualified" : undefined,
     human_takeover: needsHandoff ? true : undefined,
   });
+
+  // Memória persistente (Fatia I): refresh em background se passou do limite
+  // de msgs desde o último update. Não bloqueia — Haiku pode levar 1-2s.
+  // Antes do handoff é especialmente bom ter a memória atualizada porque o
+  // brief pro corretor lê dela.
+  refreshLeadMemoryAsync(lead.id);
 
   if (needsHandoff) {
     // Auto-brief (não bloqueia).

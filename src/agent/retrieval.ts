@@ -84,8 +84,21 @@ export async function searchByQualification(q: Qualification, limit = 5): Promis
   return rows.map(renderEmpreendimento).join("\n\n");
 }
 
-/** Busca semântica via pgvector — usado quando o lead faz pergunta livre. */
-export async function searchSemantic(question: string, limit = 5): Promise<string> {
+export type SemanticResult = {
+  /** Texto formatado pra injetar no system prompt. */
+  text: string;
+  /** Maior similaridade (cosine 0..1) entre a query e os chunks. null se fallback/vazio. */
+  topScore: number | null;
+};
+
+/**
+ * Busca semântica via pgvector — usado quando o lead faz pergunta livre.
+ *
+ * Retorna também `topScore` (maior similaridade encontrada) pra que o
+ * retrieveNode possa decidir se o contexto é forte o bastante pra a Bia
+ * responder com confiança, ou se deve punt pro consultor humano.
+ */
+export async function searchSemantic(question: string, limit = 5): Promise<SemanticResult> {
   try {
     const queryEmbedding = await embed(question);
     const sb = supabaseAdmin();
@@ -95,13 +108,22 @@ export async function searchSemantic(question: string, limit = 5): Promise<strin
       filter: {},
     });
     if (error) throw error;
-    if (!data?.length) return "";
-    return (data as Array<{ content: string }>).map((c) => `• ${c.content}`).join("\n");
+    const rows = (data ?? []) as Array<{ content: string; similarity?: number }>;
+    if (!rows.length) return { text: "", topScore: null };
+    const topScore = rows.reduce(
+      (m, r) => (typeof r.similarity === "number" && r.similarity > m ? r.similarity : m),
+      0,
+    );
+    const text = rows.map((c) => `• ${c.content}`).join("\n");
+    return { text, topScore: topScore || null };
   } catch {
-    // RAG opcional — sem chunks ainda, cai no catálogo bruto
+    // RAG opcional — sem chunks ainda, cai no catálogo bruto (sem score).
     const sb = supabaseAdmin();
     const { data } = await sb.from("empreendimentos").select("*").eq("ativo", true).limit(limit);
-    if (!data?.length) return "";
-    return (data as Empreendimento[]).map(renderEmpreendimento).join("\n\n");
+    if (!data?.length) return { text: "", topScore: null };
+    return {
+      text: (data as Empreendimento[]).map(renderEmpreendimento).join("\n\n"),
+      topScore: null,
+    };
   }
 }

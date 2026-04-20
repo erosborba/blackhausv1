@@ -33,7 +33,7 @@ export async function generateBrief(leadId: string): Promise<string> {
   const [leadQ, msgsQ] = await Promise.all([
     sb
       .from("leads")
-      .select("phone, push_name, full_name, qualification, status, stage")
+      .select("phone, push_name, full_name, qualification, status, stage, memory")
       .eq("id", leadId)
       .maybeSingle(),
     sb
@@ -52,10 +52,21 @@ export async function generateBrief(leadId: string): Promise<string> {
     .map((m) => `${m.direction === "inbound" ? name : "Bia"}: ${m.content}`)
     .join("\n");
 
+  // Memória persistente (Fatia I) já é um resumo denso do lead — se
+  // existir, ajuda muito o brief (o LLM não precisa re-destilar o perfil
+  // a partir da transcrição bruta).
+  const memoryBlock =
+    lead.memory && lead.memory.trim()
+      ? `MEMÓRIA ACUMULADA DO LEAD (contexto de sessões anteriores):
+${lead.memory.trim()}
+
+`
+      : "";
+
   const userBlock = `LEAD: ${name} (${lead.phone})
 STATUS: ${lead.status ?? "—"} · ESTÁGIO: ${lead.stage ?? "—"}
 
-QUALIFICAÇÃO ATUAL (JSON):
+${memoryBlock}QUALIFICAÇÃO ATUAL (JSON):
 ${JSON.stringify(lead.qualification ?? {}, null, 2)}
 
 HISTÓRICO DA CONVERSA:

@@ -27,6 +27,8 @@ export type Lead = {
   brief: string | null;
   brief_at: string | null;
   created_at: string;
+  memory?: string | null;
+  memory_updated_at?: string | null;
 };
 
 const shell: CSSProperties = {
@@ -393,6 +395,35 @@ export function ThreadClient({
           <div style={sideLabel}>Qualificação</div>
           {renderQualification(currentLead.qualification)}
         </div>
+
+        {currentLead.memory && currentLead.memory.trim().length > 0 && (
+          <div style={{ ...card, padding: 20 }}>
+            <div style={{ ...sideLabel, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span>Memória da Bia</span>
+              {currentLead.memory_updated_at && (
+                <span style={{ fontSize: 10, color: "#6a6a74", textTransform: "none", letterSpacing: 0 }}>
+                  atualizada {new Date(currentLead.memory_updated_at).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: "#c5c5d0",
+                whiteSpace: "pre-wrap",
+                marginTop: 8,
+              }}
+            >
+              {currentLead.memory}
+            </div>
+          </div>
+        )}
 
         <div style={{ ...card, padding: 20 }}>
           <div style={sideLabel}>Controle da Bia</div>

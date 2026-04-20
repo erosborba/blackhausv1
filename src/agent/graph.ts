@@ -57,6 +57,9 @@ export async function runSDR(args: {
     pushName: args.lead.push_name,
     qualification: args.lead.qualification ?? {},
     agentNotes: args.lead.agent_notes ?? null,
+    // Memória persistente — atualizada em background pelo webhook a cada N
+    // mensagens. Pode estar vazia nos primeiros turnos (esperado).
+    leadMemory: (args.lead.memory ?? "").trim(),
   } satisfies Partial<SDRStateType>;
 
   const final = await app.invoke(turnInput, {
