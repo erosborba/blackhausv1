@@ -22,6 +22,8 @@ type StateSnapshot = {
   aiUsageCount: number;
   copilotOldest: string | null;
   copilotCount: number;
+  draftsTableOldest: string | null;
+  draftsTableCount: number;
   draftFolders: number;
   inactiveLeadCandidates: number;
 };
@@ -32,26 +34,31 @@ async function loadState(): Promise<StateSnapshot> {
     Date.now() - CLEANUP_POLICY.INACTIVE_LEAD_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const [aiOldestQ, aiCountQ, cpOldestQ, cpCountQ, draftsQ, inactiveQ] = await Promise.all([
-    sb.from("ai_usage_log").select("created_at").order("created_at", { ascending: true }).limit(1),
-    sb.from("ai_usage_log").select("*", { count: "exact", head: true }),
-    sb.from("copilot_turns").select("created_at").order("created_at", { ascending: true }).limit(1),
-    sb.from("copilot_turns").select("*", { count: "exact", head: true }),
-    sb.storage.from("empreendimentos").list("draft", { limit: 1000 }),
-    sb
-      .from("leads")
-      .select("*", { count: "exact", head: true })
-      .or(`last_message_at.lt.${inactiveCutoff},last_message_at.is.null`)
-      .not("status", "in", "(qualified,scheduled,won)")
-      .eq("bridge_active", false)
-      .lt("created_at", inactiveCutoff),
-  ]);
+  const [aiOldestQ, aiCountQ, cpOldestQ, cpCountQ, dtOldestQ, dtCountQ, draftsQ, inactiveQ] =
+    await Promise.all([
+      sb.from("ai_usage_log").select("created_at").order("created_at", { ascending: true }).limit(1),
+      sb.from("ai_usage_log").select("*", { count: "exact", head: true }),
+      sb.from("copilot_turns").select("created_at").order("created_at", { ascending: true }).limit(1),
+      sb.from("copilot_turns").select("*", { count: "exact", head: true }),
+      sb.from("drafts").select("created_at").order("created_at", { ascending: true }).limit(1),
+      sb.from("drafts").select("*", { count: "exact", head: true }),
+      sb.storage.from("empreendimentos").list("draft", { limit: 1000 }),
+      sb
+        .from("leads")
+        .select("*", { count: "exact", head: true })
+        .or(`last_message_at.lt.${inactiveCutoff},last_message_at.is.null`)
+        .not("status", "in", "(qualified,scheduled,won)")
+        .eq("bridge_active", false)
+        .lt("created_at", inactiveCutoff),
+    ]);
 
   return {
     aiUsageOldest: aiOldestQ.data?.[0]?.created_at ?? null,
     aiUsageCount: aiCountQ.count ?? 0,
     copilotOldest: cpOldestQ.data?.[0]?.created_at ?? null,
     copilotCount: cpCountQ.count ?? 0,
+    draftsTableOldest: dtOldestQ.data?.[0]?.created_at ?? null,
+    draftsTableCount: dtCountQ.count ?? 0,
     draftFolders: draftsQ.data?.length ?? 0,
     inactiveLeadCandidates: inactiveQ.count ?? 0,
   };
@@ -160,6 +167,13 @@ export default async function CleanupPage() {
       policy: `> ${CLEANUP_POLICY.COPILOT_TURNS_DAYS} dias`,
       current: `${state.copilotCount} linha(s), mais antiga: ${daysAgo(state.copilotOldest)}`,
       health: healthBadge(actualDays(state.copilotOldest), CLEANUP_POLICY.COPILOT_TURNS_DAYS),
+    },
+    {
+      task: "drafts (tabela)",
+      detail: "drafts propostos pela Bia (feedback loop usa só os mais recentes)",
+      policy: `> ${CLEANUP_POLICY.DRAFTS_TABLE_DAYS} dias`,
+      current: `${state.draftsTableCount} linha(s), mais antiga: ${daysAgo(state.draftsTableOldest)}`,
+      health: healthBadge(actualDays(state.draftsTableOldest), CLEANUP_POLICY.DRAFTS_TABLE_DAYS),
     },
     {
       task: "Leads inativos (LGPD)",

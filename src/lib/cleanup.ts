@@ -9,6 +9,7 @@ import { supabaseAdmin } from "./supabase";
  *   - draft storage:       > 7 dias        (wizard abandonado)
  *   - ai_usage_log:        > 30 dias       (agregados no dashboard cobrem esse janela)
  *   - copilot_turns:       > 30 dias       (histórico útil pra Bia é curto)
+ *   - drafts (tabela):     > 60 dias       (feedback loop só usa os ~4 mais recentes)
  *   - leads inativos:      > 365 dias      (LGPD / direito ao esquecimento)
  *
  * Cada função retorna contadores pro log/response — facilita ver "quanto
@@ -29,6 +30,7 @@ export const CLEANUP_POLICY = {
   DRAFT_STORAGE_DAYS: 7,
   AI_USAGE_LOG_DAYS: 30,
   COPILOT_TURNS_DAYS: 30,
+  DRAFTS_TABLE_DAYS: 60,
   INACTIVE_LEAD_DAYS: 365,
 } as const;
 
@@ -146,6 +148,35 @@ export async function cleanupAiUsageLog(): Promise<CleanupResult> {
   });
 }
 
+/**
+ * Deleta drafts (tabela) com created_at < cutoff.
+ *
+ * Por que 60 dias:
+ *  - O feedback loop (`getRecentDraftEdits`) só usa os 4 mais recentes
+ *    editados; drafts antigos não ajudam o modelo.
+ *  - Draft antigo não reabre pra aprovação (workflow já pegou approved/
+ *    edited/ignored nos primeiros minutos).
+ *  - Métricas históricas (% aprovação por confidence) cabem no dashboard
+ *    com 60 dias de janela.
+ *
+ * Se num futuro precisar de histórico mais longo pra auditoria, a saída é
+ * materializar agregados em outra tabela antes do cleanup, não aumentar
+ * esse TTL.
+ */
+export async function cleanupDraftsTable(): Promise<CleanupResult> {
+  return timed("drafts_table", async () => {
+    const sb = supabaseAdmin();
+    const cutoff = daysAgo(CLEANUP_POLICY.DRAFTS_TABLE_DAYS);
+    const { data, error } = await sb
+      .from("drafts")
+      .delete()
+      .lt("created_at", cutoff)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { removed: data?.length ?? 0, detail: { cutoff } };
+  });
+}
+
 /** Deleta copilot_turns com created_at < cutoff. */
 export async function cleanupCopilotTurns(): Promise<CleanupResult> {
   return timed("copilot_turns", async () => {
@@ -226,6 +257,7 @@ export async function runAllCleanup(): Promise<{
   results.push(await cleanupDraftStorage());
   results.push(await cleanupAiUsageLog());
   results.push(await cleanupCopilotTurns());
+  results.push(await cleanupDraftsTable());
   results.push(await cleanupInactiveLeads());
 
   const totalRemoved = results.reduce((s, r) => s + r.removed, 0);
