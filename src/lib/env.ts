@@ -17,6 +17,12 @@ const schema = z.object({
   EVOLUTION_WEBHOOK_SECRET: z.string().min(1),
 
   APP_BASE_URL: z.string().url().default("http://localhost:3000"),
+
+  // Secret pra cron job chamar /api/cron/cleanup. Vercel Cron manda
+  // Authorization: Bearer <CRON_SECRET> automaticamente se a var existir.
+  // Se não setada, o endpoint continua acessível só via Vercel (que passa o
+  // header do ambiente). Em prod, SEMPRE setar.
+  CRON_SECRET: z.string().optional(),
 });
 
 export const env = schema.parse(process.env);

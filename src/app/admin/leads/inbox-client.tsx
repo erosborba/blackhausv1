@@ -156,12 +156,26 @@ export function InboxClient({ initial }: { initial: InboxItem[] }) {
     <main style={container}>
       <div style={headerRow}>
         <h1 style={{ margin: 0, fontSize: 24 }}>Inbox</h1>
-        <input
-          placeholder="Buscar por nome ou telefone…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={searchInput}
-        />
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <Link
+            href="/admin/empreendimentos"
+            style={{ color: "#8f8f9a", textDecoration: "none", fontSize: 13 }}
+          >
+            Empreendimentos →
+          </Link>
+          <Link
+            href="/admin/drafts"
+            style={{ color: "#8f8f9a", textDecoration: "none", fontSize: 13 }}
+          >
+            Drafts →
+          </Link>
+          <input
+            placeholder="Buscar por nome ou telefone…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={searchInput}
+          />
+        </div>
       </div>
 
       {filtered.length === 0 ? (

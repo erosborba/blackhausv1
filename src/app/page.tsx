@@ -31,9 +31,13 @@ export default async function Page() {
         Painel rápido — leads, empreendimentos e estado da instância WhatsApp.
       </p>
 
-      <nav style={{ display: "flex", gap: 12, marginTop: 16 }}>
+      <nav style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
         <a href="/admin/leads" style={navBtn}>Inbox</a>
-        <a href="/admin/empreendimentos/new" style={navBtn}>Novo empreendimento</a>
+        <a href="/admin/empreendimentos" style={navBtn}>Empreendimentos</a>
+        <a href="/admin/empreendimentos/new" style={navBtn}>+ Novo empreendimento</a>
+        <a href="/admin/drafts" style={navBtn}>Drafts</a>
+        <a href="/admin/usage" style={navBtn}>Uso de IA</a>
+        <a href="/admin/cleanup" style={navBtn}>Manutenção</a>
       </nav>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 32 }}>

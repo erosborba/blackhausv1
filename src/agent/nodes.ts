@@ -4,6 +4,8 @@ import { ROUTER_SYSTEM, SYSTEM_SDR, recommendSystem } from "./prompts";
 import { searchByQualification, searchSemantic } from "./retrieval";
 import type { SDRStateType, Intent, Stage } from "./state";
 import type { Qualification } from "@/lib/leads";
+import { env } from "@/lib/env";
+import { langchainAnthropicUsage, logUsage } from "@/lib/ai-usage";
 
 const REQUIRED_FIELDS: (keyof Qualification)[] = [
   "tipo",
@@ -46,8 +48,23 @@ Extraia também QUALQUER campo da qualificação que apareça na última mensage
 (tipo, quartos, cidade, bairros, faixa_preco_min, faixa_preco_max, finalidade, prazo, pagamento, usa_fgts, usa_mcmv).
 Anexe um campo "extracted" no JSON com SOMENTE os campos detectados.`;
 
+  const t0 = Date.now();
   const out = await llm.invoke([new SystemMessage(ROUTER_SYSTEM), new HumanMessage(prompt)]);
   const raw = String(out.content).trim();
+  {
+    const u = langchainAnthropicUsage(out);
+    logUsage({
+      provider: "anthropic",
+      model: env.ANTHROPIC_MODEL,
+      task: "bia_router",
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      cacheReadTokens: u.cacheReadTokens,
+      cacheWriteTokens: u.cacheWriteTokens,
+      durationMs: Date.now() - t0,
+      leadId: state.leadId || null,
+    });
+  }
 
   // Tolerante a fences ```json
   const jsonText = raw.replace(/^```(json)?/i, "").replace(/```$/, "").trim();
@@ -138,8 +155,24 @@ ${state.agentNotes.trim()}`
 
   const messages = [new SystemMessage(systemParts), ...state.messages];
 
+  const t0 = Date.now();
   const out = await llm.invoke(messages);
   const reply = String(out.content).trim();
+  {
+    const u = langchainAnthropicUsage(out);
+    logUsage({
+      provider: "anthropic",
+      model: env.ANTHROPIC_MODEL,
+      task: "bia_answer",
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      cacheReadTokens: u.cacheReadTokens,
+      cacheWriteTokens: u.cacheWriteTokens,
+      durationMs: Date.now() - t0,
+      leadId: state.leadId || null,
+      metadata: { intent: state.intent, stage: state.stage, has_retrieved: Boolean(state.retrieved) },
+    });
+  }
   return {
     reply,
     messages: [new AIMessage(reply)],

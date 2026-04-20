@@ -18,6 +18,13 @@ type UploadedFile = {
   size: number;
 };
 
+type RawChunk = {
+  section: string;
+  text: string;
+  source_file: string;
+  added_at: string;
+};
+
 type FormState = {
   nome: string;
   construtora: string;
@@ -96,6 +103,7 @@ export default function NovoEmpreendimentoPage() {
   const [extracting, setExtracting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploaded, setUploaded] = useState<UploadedFile[]>([]);
+  const [rawChunks, setRawChunks] = useState<RawChunk[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [extracted, setExtracted] = useState(false);
@@ -116,6 +124,7 @@ export default function NovoEmpreendimentoPage() {
         throw new Error(json.error ?? "Extração falhou");
       }
       setUploaded(json.files ?? []);
+      setRawChunks(Array.isArray(json.rawChunks) ? json.rawChunks : []);
       const e = json.extracted ?? {};
       setForm({
         nome: e.nome ?? "",
@@ -169,6 +178,7 @@ export default function NovoEmpreendimentoPage() {
           .map((s) => s.trim())
           .filter(Boolean),
         midias: uploaded,
+        raw_knowledge: rawChunks,
       };
       const res = await fetch("/api/admin/empreendimentos", {
         method: "POST",
@@ -179,7 +189,7 @@ export default function NovoEmpreendimentoPage() {
       if (!res.ok || !json.ok) {
         throw new Error(typeof json.error === "string" ? json.error : "Falha ao salvar");
       }
-      router.push("/");
+      router.push("/admin/empreendimentos");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -309,14 +319,40 @@ export default function NovoEmpreendimentoPage() {
 
           <section style={card}>
             <h2 style={{ margin: "0 0 16px", fontSize: 16 }}>Tipologias</h2>
+            {form.tipologias.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, 1fr) 44px",
+                  gap: 10,
+                  marginBottom: 6,
+                  padding: "0 2px",
+                }}
+              >
+                {["Quartos", "Suítes", "Vagas", "Área m²", "Preço R$", ""].map((h, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      color: "#8f8f9a",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {h}
+                  </div>
+                ))}
+              </div>
+            )}
             {form.tipologias.map((t, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr) auto", gap: 10, marginBottom: 10 }}>
-                <input style={input} placeholder="Quartos" type="number" value={t.quartos ?? ""} onChange={(e) => updateTipologia(i, { quartos: e.target.value ? Number(e.target.value) : undefined })} />
-                <input style={input} placeholder="Suítes" type="number" value={t.suites ?? ""} onChange={(e) => updateTipologia(i, { suites: e.target.value ? Number(e.target.value) : undefined })} />
-                <input style={input} placeholder="Vagas" type="number" value={t.vagas ?? ""} onChange={(e) => updateTipologia(i, { vagas: e.target.value ? Number(e.target.value) : undefined })} />
-                <input style={input} placeholder="Área m²" type="number" value={t.area ?? ""} onChange={(e) => updateTipologia(i, { area: e.target.value ? Number(e.target.value) : undefined })} />
-                <input style={input} placeholder="Preço R$" type="number" value={t.preco ?? ""} onChange={(e) => updateTipologia(i, { preco: e.target.value ? Number(e.target.value) : undefined })} />
-                <button onClick={() => removeTipologia(i)} style={{ ...button(), padding: "0 12px" }}>×</button>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr) 44px", gap: 10, marginBottom: 10 }}>
+                <input style={input} aria-label="Quartos" placeholder="Quartos" type="number" value={t.quartos ?? ""} onChange={(e) => updateTipologia(i, { quartos: e.target.value ? Number(e.target.value) : undefined })} />
+                <input style={input} aria-label="Suítes" placeholder="Suítes" type="number" value={t.suites ?? ""} onChange={(e) => updateTipologia(i, { suites: e.target.value ? Number(e.target.value) : undefined })} />
+                <input style={input} aria-label="Vagas" placeholder="Vagas" type="number" value={t.vagas ?? ""} onChange={(e) => updateTipologia(i, { vagas: e.target.value ? Number(e.target.value) : undefined })} />
+                <input style={input} aria-label="Área m²" placeholder="Área m²" type="number" value={t.area ?? ""} onChange={(e) => updateTipologia(i, { area: e.target.value ? Number(e.target.value) : undefined })} />
+                <input style={input} aria-label="Preço R$" placeholder="Preço R$" type="number" value={t.preco ?? ""} onChange={(e) => updateTipologia(i, { preco: e.target.value ? Number(e.target.value) : undefined })} />
+                <button onClick={() => removeTipologia(i)} aria-label="Remover tipologia" style={{ ...button(), padding: "0 12px" }}>×</button>
               </div>
             ))}
             <button onClick={addTipologia} style={button()}>+ Adicionar tipologia</button>
@@ -337,7 +373,7 @@ export default function NovoEmpreendimentoPage() {
           </section>
 
           <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-            <button onClick={() => router.push("/")} style={button()}>Cancelar</button>
+            <button onClick={() => router.push("/admin/empreendimentos")} style={button()}>Cancelar</button>
             <button onClick={handleSave} disabled={saving} style={{ ...button(true), opacity: saving ? 0.5 : 1 }}>
               {saving ? "Salvando..." : "Salvar empreendimento"}
             </button>

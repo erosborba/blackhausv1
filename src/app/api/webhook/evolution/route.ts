@@ -16,6 +16,7 @@ import {
   parseLeadRefFromQuote,
 } from "@/lib/handoff";
 import { brokerCopilot } from "@/lib/copilot";
+import { findLatestProposed, markDraftActed, recordDraft } from "@/lib/drafts";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const HELP_TEXT = `👋 Comandos:
@@ -422,6 +423,26 @@ async function handleAgentMessage(args: {
         text: finalText,
         sendTarget: lead.phone,
       });
+      // Métricas: marca o draft como approved/edited. Best-effort — se não
+      // achar a linha (ex.: draft antigo, banco indisponível), não bloqueia
+      // a entrega que já foi feita acima.
+      try {
+        const row = await findLatestProposed({ leadId: lead.id, agentId: agent.id });
+        if (row) {
+          await markDraftActed({
+            id: row.id,
+            action: isApproval ? "approved" : "edited",
+            finalText,
+          });
+        } else {
+          console.warn("[agent-msg] draft approval: nenhum 'proposed' encontrado pra atualizar", {
+            leadId: lead.id,
+            agentId: agent.id,
+          });
+        }
+      } catch (e) {
+        console.error("[agent-msg] draft metrics update failed:", e instanceof Error ? e.message : e);
+      }
       await sendText({
         to: agent.phone,
         text: isApproval ? "✅ Draft aprovado e enviado." : "✅ Sua edição foi enviada.",
@@ -464,6 +485,23 @@ async function handleAgentMessage(args: {
       delayMs: 0,
     });
     if (draft) {
+      // Resolve lead_id antes de enviar — precisamos pra gravar em drafts.
+      // Se não achar o lead pelo telefone, ainda entregamos o draft pro
+      // corretor (ele que sabe pra quem é), mas não gravamos métrica.
+      const leadId = await leadIdFromRef(draft.leadPhone);
+      if (leadId) {
+        await recordDraft({
+          leadId,
+          agentId: agent.id,
+          proposedText: draft.text,
+          confidence: draft.confidence,
+        });
+      } else {
+        console.warn("[agent-msg] draft record: lead não encontrado por telefone", {
+          leadPhone: draft.leadPhone,
+        });
+      }
+
       // Mensagem separada, SÓ o texto do draft (segura+copia limpinho no WhatsApp).
       // Header e footer tão fora do texto principal pra não poluir no copy/paste.
       const confBadge =

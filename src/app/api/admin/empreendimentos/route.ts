@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
-import { embedMany } from "@/lib/openai";
+import { reindexEmpreendimento } from "@/lib/empreendimentos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,11 +33,15 @@ const empSchema = z.object({
   entrega: z.string().nullish(),
   descricao: z.string().nullish(),
   midias: z.array(z.any()).default([]),
+  raw_knowledge: z.array(z.any()).default([]),
 });
 
 export async function GET() {
   const sb = supabaseAdmin();
-  const { data, error } = await sb.from("empreendimentos").select("*").order("updated_at", { ascending: false });
+  const { data, error } = await sb
+    .from("empreendimentos")
+    .select("*")
+    .order("updated_at", { ascending: false });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, data });
 }
@@ -64,56 +68,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Indexa para RAG — falha aqui não invalida o cadastro.
-    const chunks = chunkEmpreendimento(data);
-    let indexed = 0;
-    if (chunks.length) {
-      try {
-        const embeddings = await embedMany(chunks.map((c) => c.content));
-        const { error: chunkErr } = await sb.from("empreendimento_chunks").insert(
-          chunks.map((c, i) => ({
-            empreendimento_id: data.id,
-            content: c.content,
-            embedding: embeddings[i],
-            metadata: c.metadata,
-          })),
-        );
-        if (chunkErr) {
-          console.error("[empreendimentos] chunks insert error:", chunkErr);
-        } else {
-          indexed = chunks.length;
-        }
-      } catch (e) {
-        console.error("[empreendimentos] embed error:", e);
-      }
-    }
+    const indexed = await reindexEmpreendimento(data.id);
     return NextResponse.json({ ok: true, data, indexed });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[empreendimentos] unhandled:", e);
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
-}
-
-function chunkEmpreendimento(e: any): { content: string; metadata: Record<string, unknown> }[] {
-  const base = `Empreendimento ${e.nome} — ${e.bairro ?? ""}, ${e.cidade ?? ""} — ${e.status ?? ""}.`;
-  const chunks: { content: string; metadata: Record<string, unknown> }[] = [];
-  if (e.descricao) chunks.push({ content: `${base}\nDescrição: ${e.descricao}`, metadata: { kind: "descricao" } });
-  if (Array.isArray(e.tipologias) && e.tipologias.length) {
-    chunks.push({
-      content: `${base}\nTipologias: ${e.tipologias
-        .map((t: any) => `${t.quartos}q, ${t.area}m², ~R$${t.preco}`)
-        .join("; ")}`,
-      metadata: { kind: "tipologias" },
-    });
-  }
-  if (Array.isArray(e.diferenciais) && e.diferenciais.length) {
-    chunks.push({
-      content: `${base}\nDiferenciais: ${e.diferenciais.join(", ")}`,
-      metadata: { kind: "diferenciais" },
-    });
-  }
-  if (Array.isArray(e.lazer) && e.lazer.length) {
-    chunks.push({ content: `${base}\nLazer: ${e.lazer.join(", ")}`, metadata: { kind: "lazer" } });
-  }
-  return chunks;
 }

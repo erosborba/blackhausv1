@@ -1,0 +1,48 @@
+name: cleanup-cron
+
+# Dispara /api/cron/cleanup todo dia às 05:00 UTC (02:00 BRT).
+# Substitui o Vercel Cron (não existe no Railway).
+#
+# Setup no GitHub:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     - CRON_SECRET   (mesma string setada no Railway)
+#     - APP_URL       (ex.: https://blackhaus.site)   <- sem barra no final
+#
+# Schedule: `0 5 * * *` = 05:00 UTC diário. Ajuste se quiser outro horário.
+# `workflow_dispatch` permite rodar manualmente pelo botão "Run workflow"
+# (útil pra smoke test sem esperar o cron).
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /api/cron/cleanup
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ]; then
+            echo "::error::APP_URL secret não configurado"
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CRON_SECRET secret não configurado"
+            exit 1
+          fi
+
+          # -sS: silent + show errors; --fail-with-body: falha em 4xx/5xx mas imprime o body.
+          # Timeout generoso (cleanup pode varrer storage, levar minutos).
+          curl -sS --fail-with-body \
+            --max-time 420 \
+            -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            "${APP_URL}/api/cron/cleanup"
+          echo ""

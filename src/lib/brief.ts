@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "./supabase";
 import { env } from "./env";
+import { anthropicUsage, logUsage } from "./ai-usage";
 
 const BRIEF_SYSTEM = `Você é um assistente que resume conversas de qualificação SDR imobiliário em briefings curtos e acionáveis para o corretor que vai assumir o atendimento.
 
@@ -61,11 +62,25 @@ HISTÓRICO DA CONVERSA:
 ${transcript || "(sem mensagens)"}`;
 
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const t0 = Date.now();
   const resp = await anthropic.messages.create({
     model: env.ANTHROPIC_MODEL,
     max_tokens: 600,
     system: BRIEF_SYSTEM,
     messages: [{ role: "user", content: userBlock }],
+  });
+  const u = anthropicUsage(resp);
+  logUsage({
+    provider: "anthropic",
+    model: env.ANTHROPIC_MODEL,
+    task: "brief",
+    inputTokens: u.inputTokens,
+    outputTokens: u.outputTokens,
+    cacheReadTokens: u.cacheReadTokens,
+    cacheWriteTokens: u.cacheWriteTokens,
+    durationMs: Date.now() - t0,
+    leadId,
+    metadata: { msg_count: messages.length },
   });
   const text = resp.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
   return text;
