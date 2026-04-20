@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "./supabase";
+import { getSettingNumber } from "./settings";
+import { closeBridge } from "./handoff";
 
 /**
  * Rotinas de limpeza (Fatia H). Chamadas pelo cron diário em
@@ -177,6 +179,65 @@ export async function cleanupDraftsTable(): Promise<CleanupResult> {
   });
 }
 
+/**
+ * Fecha pontes abertas (`bridge_active=true`) onde o lead não trocou
+ * nenhuma mensagem há mais de `bridge_stale_hours`. Usado pra destravar
+ * leads quando o corretor esquece de mandar /fim.
+ *
+ * Efeitos do closeBridge:
+ *   - `bridge_active=false`, `bridge_closed_at=now()`
+ *   - `agents.current_lead_id` limpo (libera corretor na rotação)
+ *   - Timer de escalação cancelado (no-op se já venceu)
+ *
+ * Após o fechamento o lead volta a ser elegível pra follow-up e pra Bia
+ * responder (se `human_takeover` continuar false).
+ */
+export async function cleanupStaleBridges(): Promise<CleanupResult> {
+  return timed("stale_bridges", async () => {
+    const sb = supabaseAdmin();
+    const hours = await getSettingNumber("bridge_stale_hours", 48);
+    const cutoffMs = Date.now() - hours * 60 * 60 * 1000;
+
+    const { data: bridges, error } = await sb
+      .from("leads")
+      .select("id, phone, assigned_agent_id")
+      .eq("bridge_active", true)
+      .limit(200);
+    if (error) throw new Error(error.message);
+    if (!bridges?.length) return { removed: 0, detail: { hours, candidates: 0 } };
+
+    const closed: Array<{ id: string; phone_last4: string; lastMsgAt: string | null }> = [];
+    for (const lead of bridges) {
+      const { data: lastMsg } = await sb
+        .from("messages")
+        .select("created_at")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastMs = lastMsg?.created_at ? new Date(lastMsg.created_at).getTime() : 0;
+      if (lastMs >= cutoffMs) continue;
+
+      try {
+        await closeBridge(lead.id);
+        closed.push({
+          id: lead.id,
+          phone_last4: lead.phone.slice(-4),
+          lastMsgAt: lastMsg?.created_at ?? null,
+        });
+      } catch (e) {
+        console.error("[cleanup:stale_bridges] closeBridge falhou", lead.id, e);
+      }
+    }
+
+    return {
+      removed: closed.length,
+      detail: { hours, candidates: bridges.length, closed: closed.slice(0, 10) },
+    };
+  });
+}
+
 /** Deleta copilot_turns com created_at < cutoff. */
 export async function cleanupCopilotTurns(): Promise<CleanupResult> {
   return timed("copilot_turns", async () => {
@@ -258,6 +319,7 @@ export async function runAllCleanup(): Promise<{
   results.push(await cleanupAiUsageLog());
   results.push(await cleanupCopilotTurns());
   results.push(await cleanupDraftsTable());
+  results.push(await cleanupStaleBridges());
   results.push(await cleanupInactiveLeads());
 
   const totalRemoved = results.reduce((s, r) => s + r.removed, 0);

@@ -231,6 +231,15 @@ const META: Record<string, SettingMeta> = {
     toDisplay: (v) => v,
     toStorage: (v) => v,
   },
+  bridge_stale_hours: {
+    label: "Auto-fechar ponte esquecida após (sem troca de mensagens)",
+    unit: "horas",
+    inputType: "number",
+    min: 1,
+    max: 240,
+    toDisplay: (v) => v,
+    toStorage: (v) => v,
+  },
   followup_min_msgs_lead: {
     label: "Mínimo de mensagens do lead para entrar no follow-up",
     unit: "mensagens",
