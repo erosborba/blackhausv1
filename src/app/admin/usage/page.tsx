@@ -31,6 +31,7 @@ type Row = {
   ok: boolean;
   empreendimento_id: string | null;
   lead_id: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 async function loadRows(days: number): Promise<Row[]> {
@@ -39,7 +40,7 @@ async function loadRows(days: number): Promise<Row[]> {
   const { data, error } = await sb
     .from("ai_usage_log")
     .select(
-      "created_at, provider, model, task, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, duration_ms, ok, empreendimento_id, lead_id",
+      "created_at, provider, model, task, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, duration_ms, ok, empreendimento_id, lead_id, metadata",
     )
     .gte("created_at", since)
     .order("created_at", { ascending: false })
@@ -194,6 +195,41 @@ export default async function UsagePage(props: {
     byDay.set(day, d);
   }
 
+  // Breakdown específico de bia_answer por rag_confidence (usa metadata jsonb).
+  // Útil pra calibrar o threshold em src/agent/nodes.ts (RAG_STRONG_THRESHOLD):
+  //  - muitos "weak" com dúvidas respondendo bem → threshold agressivo demais
+  //  - "strong" com alucinação reportada → threshold baixo demais
+  // Rows sem metadata.rag_confidence (logs antes da Fatia #3) contam como "—".
+  const biaByConf = new Map<
+    string,
+    { calls: number; cost: number; durationMs: number; withLearnings: number }
+  >();
+  let biaAnswerTotal = 0;
+  for (const r of rows) {
+    if (r.task !== "bia_answer") continue;
+    biaAnswerTotal += 1;
+    const conf =
+      (r.metadata && typeof r.metadata.rag_confidence === "string"
+        ? (r.metadata.rag_confidence as string)
+        : null) ?? "—";
+    const hasLearnings = r.metadata?.has_learnings === true;
+    const b = biaByConf.get(conf) ?? { calls: 0, cost: 0, durationMs: 0, withLearnings: 0 };
+    b.calls += 1;
+    b.cost += Number(r.cost_usd) || 0;
+    b.durationMs += r.duration_ms || 0;
+    if (hasLearnings) b.withLearnings += 1;
+    biaByConf.set(conf, b);
+  }
+  // Ordem fixa pra leitura: strong, weak, none, — (outros).
+  const confOrder: Record<string, number> = { strong: 0, weak: 1, none: 2, "—": 3 };
+  const toBiaConf = Array.from(biaByConf.entries())
+    .map(([conf, v]) => ({
+      conf,
+      ...v,
+      avgMs: v.calls ? Math.round(v.durationMs / v.calls) : 0,
+    }))
+    .sort((a, b) => (confOrder[a.conf] ?? 99) - (confOrder[b.conf] ?? 99));
+
   const toTask = Array.from(byTask.entries())
     .map(([task, v]) => ({ task, ...v }))
     .sort((a, b) => b.cost - a.cost);
@@ -303,6 +339,58 @@ export default async function UsagePage(props: {
               <td style={tdRight}>
                 {totalCost > 0 ? `${Math.round((t.cost / totalCost) * 100)}%` : "—"}
               </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2 style={sectionTitle}>Bia · confiança do RAG</h2>
+      <p style={{ color: "#8f8f9a", fontSize: 12, margin: "0 0 10px 2px" }}>
+        Distribuição das respostas da Bia por confiança do retrieval semântico.
+        Threshold em <code>src/agent/nodes.ts</code> (<code>RAG_STRONG_THRESHOLD = 0.55</code>).
+        Calibre observando casos com <code>weak</code>/<code>none</code> que respondem bem
+        (threshold alto demais) ou <code>strong</code> com alucinação (threshold baixo demais).
+      </p>
+      <table style={table}>
+        <thead>
+          <tr>
+            <th style={th}>Confiança</th>
+            <th style={{ ...th, textAlign: "right" }}>Chamadas</th>
+            <th style={{ ...th, textAlign: "right" }}>% bia_answer</th>
+            <th style={{ ...th, textAlign: "right" }}>Com learnings</th>
+            <th style={{ ...th, textAlign: "right" }}>Duração média</th>
+            <th style={{ ...th, textAlign: "right" }}>Custo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {toBiaConf.length === 0 && (
+            <tr>
+              <td style={td} colSpan={6}>
+                Sem chamadas de bia_answer no período.
+              </td>
+            </tr>
+          )}
+          {toBiaConf.map((b) => (
+            <tr key={b.conf}>
+              <td style={td}>
+                <span style={badge}>{b.conf}</span>
+              </td>
+              <td style={tdRight}>{formatInt(b.calls)}</td>
+              <td style={tdRight}>
+                {biaAnswerTotal > 0
+                  ? `${Math.round((b.calls / biaAnswerTotal) * 100)}%`
+                  : "—"}
+              </td>
+              <td style={tdRight}>
+                {b.withLearnings}
+                <span style={{ color: "#8f8f9a" }}>
+                  {b.calls > 0
+                    ? ` (${Math.round((b.withLearnings / b.calls) * 100)}%)`
+                    : ""}
+                </span>
+              </td>
+              <td style={tdRight}>{formatMs(b.avgMs)}</td>
+              <td style={tdRight}>{formatUsd(b.cost)}</td>
             </tr>
           ))}
         </tbody>
