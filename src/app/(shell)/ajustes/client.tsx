@@ -16,7 +16,7 @@ type Setting = {
 type SettingMeta = {
   label: string;
   unit: string;
-  group: "Handoff" | "RAG" | "Debounce" | "Memória" | "Follow-up" | "Mídia" | "Bridge";
+  group: "Handoff" | "RAG" | "Debounce" | "Memória" | "Follow-up" | "Mídia" | "Bridge" | "Financiamento";
   inputType: "number" | "float";
   min?: number;
   max?: number;
@@ -208,6 +208,88 @@ const META: Record<string, SettingMeta> = {
     toDisplay: (v) => v,
     toStorage: (v) => v,
   },
+  finance_enabled: {
+    label: "Ativar simulação financeira (kill switch geral)",
+    unit: "(0 = off, 1 = on)",
+    group: "Financiamento",
+    inputType: "number",
+    min: 0,
+    max: 1,
+    toDisplay: (v) => (v === "true" ? "1" : "0"),
+    toStorage: (v) => (Number(v) >= 1 ? "true" : "false"),
+  },
+  finance_simulate_enabled: {
+    label: "Habilitar tool simulate_financing (SBPE/SAC)",
+    unit: "(0 = off, 1 = on)",
+    group: "Financiamento",
+    inputType: "number",
+    min: 0,
+    max: 1,
+    toDisplay: (v) => (v === "true" ? "1" : "0"),
+    toStorage: (v) => (Number(v) >= 1 ? "true" : "false"),
+  },
+  finance_mcmv_enabled: {
+    label: "Habilitar tool check_mcmv (faixas + subsídio)",
+    unit: "(0 = off, 1 = on)",
+    group: "Financiamento",
+    inputType: "number",
+    min: 0,
+    max: 1,
+    toDisplay: (v) => (v === "true" ? "1" : "0"),
+    toStorage: (v) => (Number(v) >= 1 ? "true" : "false"),
+  },
+  finance_require_explicit_price: {
+    label: "Exigir preço explícito na simulação (recomendado)",
+    unit: "(0 = off, 1 = on)",
+    group: "Financiamento",
+    inputType: "number",
+    min: 0,
+    max: 1,
+    toDisplay: (v) => (v === "true" ? "1" : "0"),
+    toStorage: (v) => (Number(v) >= 1 ? "true" : "false"),
+  },
+  finance_default_entry_pct: {
+    label: "Entrada padrão quando lead não informa",
+    unit: "%",
+    group: "Financiamento",
+    inputType: "number",
+    min: 0,
+    max: 90,
+    toDisplay: (v) => v,
+    toStorage: (v) => v,
+  },
+  finance_default_term_months: {
+    label: "Prazo padrão quando lead não informa",
+    unit: "meses",
+    group: "Financiamento",
+    inputType: "number",
+    min: 60,
+    max: 420,
+    toDisplay: (v) => v,
+    toStorage: (v) => v,
+  },
+  finance_sbpe_rate_annual_bps: {
+    label: "Taxa SBPE anual (referência de mercado)",
+    unit: "% a.a.",
+    group: "Financiamento",
+    inputType: "float",
+    min: 1,
+    max: 25,
+    step: 0.05,
+    toDisplay: (v) => (Number(v) / 100).toFixed(2), // 1150 bps → "11.50"
+    toStorage: (v) => String(Math.round(Number(v) * 100)), // "11.50" → 1150
+  },
+  finance_itbi_default_bps: {
+    label: "ITBI default (quando cidade não mapeada)",
+    unit: "%",
+    group: "Financiamento",
+    inputType: "float",
+    min: 0,
+    max: 10,
+    step: 0.05,
+    toDisplay: (v) => (Number(v) / 100).toFixed(2), // 200 bps → "2.00"
+    toStorage: (v) => String(Math.round(Number(v) * 100)),
+  },
 };
 
 const GROUP_ORDER: SettingMeta["group"][] = [
@@ -218,6 +300,7 @@ const GROUP_ORDER: SettingMeta["group"][] = [
   "Follow-up",
   "Mídia",
   "Bridge",
+  "Financiamento",
 ];
 
 export function AjustesClient() {
@@ -362,7 +445,6 @@ function SettingRow({ setting, onSaved }: { setting: Setting; onSaved: () => voi
             fontSize: 13,
             fontFamily: "var(--font-mono)",
             width: 120,
-            boxShadow: "var(--sh-in-sm)",
             outline: "none",
           }}
         />

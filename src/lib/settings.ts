@@ -37,6 +37,16 @@ export async function getSettingNumber(key: string, fallback: number): Promise<n
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * Lê flag booleana. Convenção do projeto: valores "true"/"1" → true;
+ * qualquer outra coisa (inclusive string vazia) → false.
+ * Fallback só é usado se a chave não existir no banco.
+ */
+export async function getSettingBool(key: string, fallback: boolean): Promise<boolean> {
+  const val = await getSetting(key, fallback ? "true" : "false");
+  return val === "true" || val === "1";
+}
+
 export async function updateSetting(key: string, value: string): Promise<void> {
   const sb = supabaseAdmin();
   const { error } = await sb

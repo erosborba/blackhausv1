@@ -285,31 +285,70 @@ merge**. Sem isso, qualquer prompt change é fé.
 
 **Objetivo**: Bia fala de parcela, não só preço.
 
-### [ ] 3.1 · Lib pura `src/lib/finance.ts`
-- Funções: `sbpe(principal, rate, months)`, `sac(principal, rate, months)`,
-  `itbi(value, cityCode)`, `fgtsEligible({monthsClt, isFirstHome})`,
-  `mcmvBand({renda, cidade, primeiroImovel})`
-- Tests: 30 cases cobrindo cada função; inputs inválidos retornam erro
-- DoD: `npm run test finance` 100% pass
+**Ordem revista 2026-04-24**: a ordem original assumia que Bia chuta
+preço e simula. Na discussão com o operador, entendemos que o risco
+real não é a simulação — é simulação sem preço confiável. Por isso
+adicionamos slice 3.0 (guardrail + kill switches), reordenamos
+`check_mcmv` antes de `simulate_financing` (elegibilidade é mais segura
+e de maior valor comercial), e deixamos `cities_fiscal` pro fim
+(refinamento, não bloqueador).
 
-### [ ] 3.2 · Tabela cidades + ITBI
-- `cities_fiscal` (cidade text, uf text, itbi_rate numeric, reg_cartorio numeric)
-- Seed: 30 capitais + regiões atendidas
-- DoD: query por cidade funciona
+### [x] 3.0 · Settings + guardrails + config adapter — 2026-04-24
+- Migration `20260424000001_finance_settings.sql` com 8 settings:
+  - `finance_enabled` — kill switch geral
+  - `finance_simulate_enabled`, `finance_mcmv_enabled` — kill por tool
+  - `finance_require_explicit_price` — guardrail (default true): Bia
+    nunca simula sem preço vindo do lead ou de `preco_inicial`
+  - `finance_default_entry_pct` (20), `finance_default_term_months` (360)
+  - `finance_sbpe_rate_annual_bps` (1150), `finance_itbi_default_bps` (200)
+- `src/lib/finance-config.ts` — adapter que lê via `getSettingBool`/
+  `getSettingNumber` (TTL-cache 60s) e converte bps → decimal
+- `src/lib/settings.ts`: novo helper `getSettingBool`
+- `/ajustes` ganha grupo "Financiamento" com os 8 toggles
+- DoD: admin desliga `finance_enabled` → tools são desregistradas em
+  runtime (a ser garantido no slice 3.3/3.4 via checagem de `flags`)
 
-### [ ] 3.3 · Tool `simulate_financing`
-- Input: preco_imovel, entrada, prazo_meses, modalidade ('sbpe'|'sac')
-- Output estruturado: parcela inicial, parcela final, juros totais, CET
+### [x] 3.1 · Lib pura `src/lib/finance.ts` — 2026-04-24
+- Funções puras (sem banco, sem env): `sbpe`, `sac`, `mcmvBand`,
+  `fgtsEligible`, `itbi`
+- Constantes: `MCMV_BANDS` (3 faixas urbano frozen), `MCMV_SOURCE_DATE`,
+  `FGTS_MIN_MONTHS_CLT`, `FGTS_SFH_CEILING`
+- **SBPE/Tabela Price**: `PMT = P·r / (1 − (1+r)^−n)`; edge case r=0
+  vira P/n
+- **SAC**: `first = P/n + P·r`, `last = (P/n)·(1+r)`,
+  `totalInterest = r·P·(n+1)/2`
+- **MCMV 2024**: urbano_1 até R$2.640 / teto R$264k / subsídio R$55k /
+  4.25%; urbano_2 até R$4.400 / subsídio R$29k / 5.25%; urbano_3 até
+  R$8.000 / sem subsídio / 8.16%
+- **FGTS**: ≥36 meses CLT + primeiro imóvel + ≤R$1.5M (teto SFH)
+- **Tests** (`finance.test.ts`): 39 casos cobrindo todos os caminhos
+  feliz + inválidos. `npm run test:unit` verde (62/62 geral)
+- DoD: atendido. Lib 100% testável sem mock de banco.
+
+### [ ] 3.4 · Tool `check_mcmv` (promovida pra antes do simulate)
+- Input: renda_bruta, primeiro_imovel
+- Output: faixa, subsídio estimado, taxa efetiva, teto de imóvel
+- Lê `flags.mcmvEnabled` do `getFinanceConfig()` — retorna null se off
 - DoD: tool no registry, eval case adicionado
 
-### [ ] 3.4 · Tool `check_mcmv`
-- Input: renda_bruta, cidade, primeiro_imovel, idade
-- Output: faixa MCMV, subsídio estimado, taxa efetiva, pode/não pode
-- DoD: cobertura de todos faixas atuais; eval case
+### [ ] 3.3 · Tool `simulate_financing`
+- Input: preco_imovel (obrigatório), entrada, prazo_meses, sistema
+- Output estruturado: parcela inicial, parcela final, juros totais, CET
+- **Guardrail**: se `flags.requireExplicitPrice=true` (default) e
+  preco_imovel não veio do lead ou de `preco_inicial` do empreendimento
+  → tool retorna `{ ok:false, needs_price:true }` e Bia pergunta
+- DoD: tool no registry, eval case, guardrail respeitado
+
+### [ ] 3.2 · Tabela cidades + ITBI (refinamento)
+- `cities_fiscal` (cidade text, uf text, itbi_rate numeric, reg_cartorio numeric)
+- Seed: 30 capitais + regiões atendidas
+- Fallback pro `finance_itbi_default_bps` quando cidade ausente
+- DoD: query por cidade funciona
 
 ### [ ] 3.5 · Prompt update — quando simular
 - System prompt: depois que lead fala de preço/financiamento, Bia oferece
-  simular; nunca simula sem a renda
+  simular; nunca simula sem a renda (check_mcmv) OU sem preço
+  (simulate_financing respeita guardrail)
 - DoD: eval do caso "lead menciona preço" → Bia pergunta ou simula
 
 ### [ ] 3.6 · Bubble "simulação" no /inbox
