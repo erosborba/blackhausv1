@@ -330,13 +330,66 @@ CI vai comparar (G-1). Só então começar Track 2.
   9-18), modal vira fricção; (b) o contexto visual (grid acima) fica
   sempre presente.
 
-**Deferidos (requerem credenciais externas)**
-- Slice 2.2 · Google Calendar OAuth — precisa `GOOGLE_CLIENT_ID`/`SECRET`
-  e callback url estável. Fica pra quando for implantar em produção
-  de verdade.
-- Slice 2.3 · Calendar write-through — depende de 2.2. `book_visit`
-  já emite `lead_events` e está pronto pra chamar o Calendar API num
-  `await pushToCalendar(visit)` quando 2.2 aterrissar.
+**Decisão 2026-04-22: dropar Google Calendar, entregar equivalentes próprios**
+
+Depois de colocar Bia marcando, remarcando e lembrando visitas fim-a-fim
+com nossa stack, revisitamos Slices 2.2/2.3 (Google Calendar OAuth +
+write-through). Conclusão: **otimização prematura** pra 1 corretor.
+Custo real do Google (OAuth flow, refresh rotation, quota, drift no
+`calendar_event_id` se o corretor trocar de conta, ~200 linhas pra
+manter pra sempre) vs valor incremental (visível no mesmo calendar do
+celular do lead + bloqueios externos): não fecha.
+
+Substitui por dois slices leves que fecham os gaps reais:
+
+**2.2' — `.ics` no booking**
+- `src/lib/ics.ts` gerador RFC 5545 puro (CRLF, line folding a 75,
+  escape de texto, VALARM 1h antes) + 10 unit tests.
+- `evolution.ts > sendDocument` chama `/message/sendMedia` com
+  `mediatype: document`.
+- `book_visit` monta `.ics` com UID estável `visit-<id>@blackhaus`
+  (reagendamento preserva UID + incrementa SEQUENCE=1 +
+  `METHOD:REQUEST` pra calendar substituir evento existente).
+- LOCATION best-effort via empreendimento (endereco + bairro + cidade).
+- Falha silenciosa — o texto principal já foi, `.ics` é bônus.
+
+**2.3' — bloqueios pontuais**
+- Tabela `agent_unavailability (start_at, end_at, reason)` com índice
+  parcial `WHERE active = true`.
+- `slot-allocator.BusyVisit` ganha campo opcional `duration_min` pra
+  representar bloqueios de duração arbitrária (férias = 7 dias inteiros).
+  Refactor do `conflictsWithBusy` pra pré-computar `{start, end}` por
+  busy, em vez de assumir que toda row tem a mesma duração. 2 testes
+  novos (teste 13 para bloqueio longo, 14 pra retro-compat) + os 10
+  de ICS = 24/24 passing.
+- `propose_visit_slots` e `book_visit.isSlotAvailable` chamam
+  `fetchUnavailabilityAsBusy(...)` e concatenam ao array `busy`.
+- UI em `/ajustes?tab=agenda`: nova seção "Bloqueios" por corretor
+  com form date+time range + motivo, lista futura e remove inline.
+
+**Lições dessa pivotada**
+- **"Defer" nem sempre é "pending"**: Slices 2.2/2.3 ficaram marcados
+  como DEFERRED durante duas sessões. Quando parei pra revisitar,
+  virou óbvio que o deferral era na verdade "estamos fingindo que
+  isso é necessário". Exercício útil: lista de deferreds deveria
+  ter uma review forçada a cada N slices — "isso ainda importa?"
+- **Anexo vs integração**: a mesma percepção do lado do lead ("evento
+  no meu calendar") custa 30 linhas (`.ics` attachment) em vez de
+  200+ (OAuth flow). A tentação de "integrar de verdade" vem de
+  assumir que o usuário quer bidirecional — mas 99% do tempo ele
+  quer só "entrar no calendar". One-way export ganha.
+- **Schema split (agent_availability ∪ agent_unavailability)**:
+  tentei mentalmente modelar como uma só tabela com flag `kind`. Vira
+  escadaria de CASE no allocator. Duas tabelas, regra única: `slot
+  livre = janela ativa ∩ NÃO(visit) ∩ NÃO(bloqueio)`. Vale lembrar
+  pros próximos tracks: positivo e negativo são entidades diferentes
+  quando as queries naturais as tratam diferente.
+- **BusyVisit.duration_min é retro-compat**: adicionei o campo
+  opcional sem quebrar o código existente; visits reais continuam
+  passando sem duration (usa `visitDurationMin` do input default).
+  Teste 14 garante isso. Regra pro resto do roadmap: **nunca
+  "atualizar" tipo de teste — sempre adicionar um novo pro novo
+  comportamento**. O antigo fica de guarda contra regressão.
 
 **Invariants honrados**
 - I-2 (nunca enviar pra `5555*`/`eval_*`): honrado em `visit-reminders`

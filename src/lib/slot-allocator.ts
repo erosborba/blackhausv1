@@ -34,6 +34,15 @@ export type BusyVisit = {
   agent_id: string;
   /** ISO timestamp UTC. */
   scheduled_at: string;
+  /**
+   * Duração explícita do bloco em minutos. Se ausente, usa
+   * `visitDurationMin` do input (default 60).
+   *
+   * Usado por `agent_unavailability` (Slice 2.3') pra representar
+   * bloqueios arbitrários (consulta médica, férias) — o lead time
+   * é explícito, não fixo.
+   */
+  duration_min?: number;
 };
 
 export type Slot = {
@@ -92,12 +101,15 @@ export function allocateSlots(input: AllocateInput): Slot[] {
   const earliestMs = nowMs + minLead * 60_000;
 
   // Pré-processa busy por agent pra lookup O(1) na checagem de overlap.
-  const busyByAgent = new Map<string, number[]>();
+  // Guarda (start, end) já computado — busy com duration_min próprio
+  // (ex: agent_unavailability) não é sobrescrito por visitDurationMin.
+  const busyByAgent = new Map<string, Array<{ start: number; end: number }>>();
   for (const b of input.busy) {
     const t = new Date(b.scheduled_at).getTime();
     if (!Number.isFinite(t)) continue;
+    const dur = b.duration_min ?? durMin;
     const arr = busyByAgent.get(b.agent_id) ?? [];
-    arr.push(t);
+    arr.push({ start: t, end: t + dur * 60_000 });
     busyByAgent.set(b.agent_id, arr);
   }
 
@@ -136,16 +148,18 @@ function conflictsWithBusy(
   slotMs: number,
   durMin: number,
   bufferMin: number,
-  busy: number[] | undefined,
+  busy: Array<{ start: number; end: number }> | undefined,
 ): boolean {
   if (!busy || busy.length === 0) return false;
   const slotEnd = slotMs + durMin * 60_000;
   const slotStart = slotMs - bufferMin * 60_000;
-  for (const bMs of busy) {
-    const bEnd = bMs + durMin * 60_000 + bufferMin * 60_000;
-    const bStart = bMs - bufferMin * 60_000;
-    // overlap clássico [a.start, a.end) vs [b.start, b.end)
-    if (slotStart < bEnd && bStart < slotEnd) return true;
+  const slotEndBuf = slotEnd + bufferMin * 60_000;
+  for (const b of busy) {
+    const bStart = b.start - bufferMin * 60_000;
+    const bEnd = b.end + bufferMin * 60_000;
+    // overlap clássico [a.start, a.end) vs [b.start, b.end).
+    // Usa slotStart (com buffer pre) vs bEnd (com buffer post) dos dois lados.
+    if (slotStart < bEnd && bStart < slotEndBuf) return true;
   }
   return false;
 }

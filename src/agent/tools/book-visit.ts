@@ -1,7 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { createVisit, type Visit } from "@/lib/visits";
-import { sendText } from "@/lib/evolution";
+import { sendText, sendDocument } from "@/lib/evolution";
 import { emitLeadEvent } from "@/lib/lead-events";
+import { buildIcs, icsToBase64 } from "@/lib/ics";
+import { fetchUnavailabilityAsBusy } from "@/lib/agent-availability";
 import {
   allocateSlots,
   formatSlotPtBR,
@@ -145,6 +147,7 @@ export async function bookVisit(input: BookVisitInput): Promise<BookVisitOutput>
 
   // 4. Manda confirmação WhatsApp (a menos que explicitamente pulado).
   const empNome = await maybeGetEmpreendimentoNome(visit);
+  const empLocation = await maybeGetEmpreendimentoLocation(visit);
   const confirmation = formatConfirmation(visit, empNome);
   let whatsappErr: string | null = null;
   if (!input.skip_whatsapp) {
@@ -155,6 +158,40 @@ export async function bookVisit(input: BookVisitInput): Promise<BookVisitOutput>
       console.error("[book-visit] whatsapp confirmation failed:", whatsappErr);
       // Não desfazemos a visit — ela está marcada, o envio pode ser
       // re-tentado via UI / lembrete 24h (Slice 2.6).
+    }
+
+    // 4b. Anexa .ics (alternativa ao Google Calendar — Slice 2.2').
+    //     Falha silenciosa: o evento está confirmado, o anexo é bônus.
+    try {
+      const ics = buildIcs({
+        uid: `visit-${visit.id}@blackhaus`,
+        startAt: visit.scheduled_at,
+        durationMin: durMin,
+        summary: empNome ? `Visita — ${empNome}` : "Visita Blackhaus",
+        description: confirmation,
+        location: empLocation ?? undefined,
+        method: "REQUEST",
+      });
+      const fileSlug = (empNome ?? "visita")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .slice(0, 40) || "visita";
+      await sendDocument({
+        to: input.lead_phone,
+        mediaBase64: icsToBase64(ics),
+        fileName: `${fileSlug}.ics`,
+        mimetype: "text/calendar",
+        caption: "Adiciona na sua agenda (toca no arquivo).",
+        delayMs: 1200,
+      });
+    } catch (e) {
+      // Não promove pra whatsappErr — o texto principal já foi, só o .ics falhou.
+      console.error(
+        "[book-visit] ics attachment failed:",
+        e instanceof Error ? e.message : e,
+      );
     }
   }
 
@@ -195,7 +232,15 @@ async function isSlotAvailable(args: {
     .in("status", ["scheduled", "confirmed"])
     .gte("scheduled_at", dayStart.toISOString())
     .lt("scheduled_at", dayEnd.toISOString());
-  const busy: BusyVisit[] = ((visitRows ?? []) as BusyVisit[]);
+  const busyVisits: BusyVisit[] = ((visitRows ?? []) as BusyVisit[]);
+
+  // Bloqueios pontuais na janela do mesmo dia (Slice 2.3').
+  const unavail = await fetchUnavailabilityAsBusy({
+    agent_ids: [args.agent_id],
+    from: dayStart,
+    to: dayEnd,
+  });
+  const busy: BusyVisit[] = [...busyVisits, ...unavail];
 
   // Usa o allocator com janela estreita centrada no horário pedido pra
   // testar se esse slot específico apareceria como livre.
@@ -229,6 +274,31 @@ async function maybeGetEmpreendimentoNome(visit: Visit): Promise<string | null> 
     .eq("id", visit.empreendimento_id)
     .maybeSingle();
   return (data as { nome: string } | null)?.nome ?? null;
+}
+
+/**
+ * Tenta montar um LOCATION pro .ics — endereço do empreendimento se
+ * existir, senão só o nome/bairro. Best-effort; se a tabela não tiver
+ * a coluna (schema pode variar), devolve null e o .ics sai sem LOCATION.
+ */
+async function maybeGetEmpreendimentoLocation(visit: Visit): Promise<string | null> {
+  if (!visit.empreendimento_id) return null;
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("empreendimentos")
+    .select("nome, endereco, bairro, cidade")
+    .eq("id", visit.empreendimento_id)
+    .maybeSingle();
+  if (error || !data) return null;
+  const r = data as {
+    nome?: string | null;
+    endereco?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+  };
+  const parts = [r.endereco, r.bairro, r.cidade].filter(Boolean);
+  if (parts.length > 0) return parts.join(", ");
+  return r.nome ?? null;
 }
 
 function formatConfirmation(visit: Visit, empNome: string | null): string {

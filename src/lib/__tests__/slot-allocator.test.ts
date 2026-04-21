@@ -235,6 +235,49 @@ test("11. input inválido em now lança erro explícito", () => {
   );
 });
 
+test("13. busy com duration_min bloqueia intervalo arbitrário (unavailability)", () => {
+  // Bloqueio 9h-17h (8h) — ex: agent_unavailability tipo "férias"
+  const windows = [win(AGENT_A, 2, 9, 18)];
+  const busy: BusyVisit[] = [
+    {
+      agent_id: AGENT_A,
+      scheduled_at: "2026-04-21T12:00:00.000Z", // 9h BRT terça
+      duration_min: 8 * 60, // 8h
+    },
+  ];
+  const slots = allocateSlots({
+    windows,
+    busy,
+    now: NOW,
+    slotStepMin: 60,
+    visitDurationMin: 60,
+    horizonDays: 1,
+    minLeadTimeMin: 0,
+  });
+  // Janela 9-18 teria 9 slots (9,10,...,17); todos bloqueados pelo 9h-17h.
+  // Sobra só 17h (17:00-18:00). Mas busy vai até 17:00 (start 9h BRT + 8h = 17:00).
+  // Slot 17h (17:00-18:00) vs busy (9:00-17:00) → overlap? 17<17 && 9<18 → false. OK.
+  assert.equal(slots.length, 1);
+  assert.equal(slots[0].minute_of_day, 17 * 60);
+});
+
+test("14. busy sem duration_min ainda usa visitDurationMin (retro-compat)", () => {
+  const windows = [win(AGENT_A, 2, 9, 12)];
+  const busy: BusyVisit[] = [
+    { agent_id: AGENT_A, scheduled_at: "2026-04-21T13:00:00.000Z" }, // sem duration_min
+  ];
+  const slots = allocateSlots({
+    windows,
+    busy,
+    now: NOW,
+    slotStepMin: 60,
+    visitDurationMin: 60,
+    minLeadTimeMin: 0,
+  });
+  // Mesmo caso do teste 4 — busy 10h-11h (fallback 60min), 9h e 11h sobrevivem.
+  assert.equal(slots.length, 2);
+});
+
 test("12. formatSlotPtBR produz string legível", () => {
   const slot = {
     agent_id: AGENT_A,

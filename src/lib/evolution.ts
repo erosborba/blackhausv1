@@ -37,6 +37,43 @@ export async function sendText({ to, text, delayMs = 800, quotedId }: SendTextIn
   });
 }
 
+type SendDocumentInput = {
+  to: string;
+  mediaBase64: string;        // base64 puro, sem data-URL prefix
+  fileName: string;           // ex: "visita-jardim-das-acacias.ics"
+  mimetype?: string;          // default text/calendar
+  caption?: string;
+  delayMs?: number;
+};
+
+/**
+ * Envia arquivo anexado no WhatsApp. Usado pra mandar `.ics` junto com
+ * a confirmação de visita (Slice 2.2' — alternativa ao Google Calendar):
+ * o lead toca no arquivo, abre no calendar nativo do celular, evento
+ * entra sem a gente precisar de OAuth.
+ */
+export async function sendDocument({
+  to,
+  mediaBase64,
+  fileName,
+  mimetype = "text/calendar",
+  caption,
+  delayMs = 800,
+}: SendDocumentInput) {
+  return evoFetch(`/message/sendMedia/${env.EVOLUTION_INSTANCE}`, {
+    method: "POST",
+    body: JSON.stringify({
+      number: to,
+      mediatype: "document",
+      mimetype,
+      media: mediaBase64,
+      fileName,
+      caption: caption ?? "",
+      delay: delayMs,
+    }),
+  });
+}
+
 export async function sendPresence(to: string, presence: "composing" | "paused" = "composing") {
   return evoFetch(`/chat/sendPresence/${env.EVOLUTION_INSTANCE}`, {
     method: "POST",

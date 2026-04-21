@@ -535,3 +535,131 @@
     align-items: stretch;
   }
 }
+
+/* Bloqueios pontuais (Slice 2.3') ------------------------------------- */
+
+.unavail-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.unavail-head {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+  margin-bottom: 8px;
+}
+
+.unavail-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.unavail-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(243, 199, 110, 0.08);
+  border: 1px solid rgba(243, 199, 110, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.unavail-range {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+  flex-shrink: 0;
+}
+
+.unavail-reason {
+  color: var(--ink-3);
+  font-style: italic;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unavail-remove {
+  background: transparent;
+  border: 0;
+  color: var(--ink-4);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  transition: color 120ms;
+}
+.unavail-remove:hover {
+  color: #ffb0b0;
+}
+
+.unavail-empty {
+  color: var(--ink-4);
+  font-size: 12px;
+  padding: 8px 0;
+  font-style: italic;
+}
+
+.add-unavail-form {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.add-unavail-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.add-unavail-form input[type="text"] {
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  min-width: 140px;
+}
+
+.add-unavail-form input[type="date"],
+.add-unavail-form input[type="time"] {
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.datetime-pair {
+  display: flex;
+  gap: 6px;
+}
+
+@media (max-width: 600px) {
+  .add-unavail-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .datetime-pair {
+    flex-direction: column;
+  }
+}

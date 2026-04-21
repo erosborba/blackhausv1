@@ -136,3 +136,128 @@ export async function deactivateAvailabilityWindow(
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+// ─── agent_unavailability (bloqueios pontuais — Slice 2.3') ─────────────
+
+export type AgentUnavailabilityRow = {
+  id: string;
+  agent_id: string;
+  start_at: string;
+  end_at: string;
+  reason: string | null;
+  active: boolean;
+  created_at: string;
+  created_by: string | null;
+};
+
+/**
+ * Busca bloqueios ativos que podem afetar uma janela de tempo. Retorna
+ * no formato `BusyVisit` (com duration_min) pro slot-allocator consumir
+ * direto.
+ *
+ * `from`/`to` são usados pra narrow no índice — passe o horizonte do
+ * allocator (default 7 dias).
+ */
+export async function fetchUnavailabilityAsBusy(args: {
+  agent_ids?: string[];
+  from: Date;
+  to: Date;
+}): Promise<
+  Array<{ agent_id: string; scheduled_at: string; duration_min: number }>
+> {
+  const sb = supabaseAdmin();
+  let q = sb
+    .from("agent_unavailability")
+    .select("agent_id, start_at, end_at")
+    .eq("active", true)
+    .lt("start_at", args.to.toISOString())
+    .gt("end_at", args.from.toISOString());
+  if (args.agent_ids && args.agent_ids.length > 0) {
+    q = q.in("agent_id", args.agent_ids);
+  }
+  const { data, error } = await q;
+  if (error) {
+    console.error("[agent-unavailability] fetch:", error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => {
+    const row = r as { agent_id: string; start_at: string; end_at: string };
+    const durMin = Math.max(
+      1,
+      Math.round(
+        (new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000,
+      ),
+    );
+    return {
+      agent_id: row.agent_id,
+      scheduled_at: row.start_at,
+      duration_min: durMin,
+    };
+  });
+}
+
+export async function listUnavailability(agentId?: string): Promise<AgentUnavailabilityRow[]> {
+  const sb = supabaseAdmin();
+  let q = sb
+    .from("agent_unavailability")
+    .select("*")
+    .eq("active", true)
+    .gte("end_at", new Date().toISOString()) // só futuros / em curso
+    .order("start_at", { ascending: true });
+  if (agentId) q = q.eq("agent_id", agentId);
+  const { data, error } = await q;
+  if (error) {
+    console.error("[agent-unavailability] list:", error.message);
+    return [];
+  }
+  return (data ?? []) as AgentUnavailabilityRow[];
+}
+
+export type CreateUnavailabilityInput = {
+  agent_id: string;
+  start_at: string; // ISO
+  end_at: string;
+  reason?: string | null;
+  created_by?: string | null;
+};
+
+export async function createUnavailability(
+  input: CreateUnavailabilityInput,
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const start = new Date(input.start_at);
+  const end = new Date(input.end_at);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    return { ok: false, error: "datas inválidas" };
+  }
+  if (end.getTime() <= start.getTime()) {
+    return { ok: false, error: "fim precisa ser maior que início" };
+  }
+
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("agent_unavailability")
+    .insert({
+      agent_id: input.agent_id,
+      start_at: start.toISOString(),
+      end_at: end.toISOString(),
+      reason: input.reason ?? null,
+      created_by: input.created_by ?? "admin",
+      active: true,
+    })
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, id: (data as { id: string } | null)?.id };
+}
+
+export async function deactivateUnavailability(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const sb = supabaseAdmin();
+  const { error } = await sb
+    .from("agent_unavailability")
+    .update({ active: false })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

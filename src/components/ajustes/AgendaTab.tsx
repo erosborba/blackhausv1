@@ -29,6 +29,15 @@ type Agent = {
   }>;
 };
 
+type UnavailabilityRow = {
+  id: string;
+  agent_id: string;
+  start_at: string;
+  end_at: string;
+  reason: string | null;
+  active: boolean;
+};
+
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // seg→dom (brasileiro)
 
@@ -123,8 +132,196 @@ function AgentBlock({ agent, onChange }: { agent: Agent; onChange: () => void })
       </div>
 
       <AddWindowForm agentId={agent.agent_id} onCreated={onChange} />
+
+      <UnavailabilitySection agentId={agent.agent_id} />
     </section>
   );
+}
+
+/**
+ * Bloqueios pontuais (Slice 2.3') — férias, consulta, folga. Busca
+ * direto da API pra cada agent block; poderia ser pré-carregado no
+ * parent, mas o volume é baixo (poucos bloqueios por corretor) e
+ * deixar aqui mantém o parent simples.
+ */
+function UnavailabilitySection({ agentId }: { agentId: string }) {
+  const [blocks, setBlocks] = useState<UnavailabilityRow[] | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/admin/agent-unavailability?agent_id=${encodeURIComponent(agentId)}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json();
+      if (json.ok) setBlocks(json.data as UnavailabilityRow[]);
+    } catch {
+      // silent — bloqueios são UX, não crítico
+    }
+  }, [agentId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function remove(id: string) {
+    if (!confirm("Remover este bloqueio?")) return;
+    const res = await fetch(
+      `/api/admin/agent-unavailability?id=${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    const json = await res.json();
+    if (!json.ok) alert(`Erro: ${json.error ?? "falha"}`);
+    else void load();
+  }
+
+  return (
+    <div className="unavail-section">
+      <div className="unavail-head">
+        <span>Bloqueios (férias, consulta, folga)</span>
+      </div>
+      <ul className="unavail-list">
+        {(blocks ?? []).map((b) => (
+          <li key={b.id} className="unavail-item">
+            <span className="unavail-range">
+              {fmtDateTime(b.start_at)} → {fmtDateTime(b.end_at)}
+            </span>
+            {b.reason ? <span className="unavail-reason">{b.reason}</span> : null}
+            <button
+              type="button"
+              className="unavail-remove"
+              onClick={() => remove(b.id)}
+              aria-label="Remover"
+            >
+              ×
+            </button>
+          </li>
+        ))}
+        {blocks && blocks.length === 0 ? (
+          <li className="unavail-empty">Nenhum bloqueio futuro.</li>
+        ) : null}
+      </ul>
+      <AddUnavailabilityForm agentId={agentId} onCreated={load} />
+    </div>
+  );
+}
+
+function AddUnavailabilityForm({
+  agentId,
+  onCreated,
+}: {
+  agentId: string;
+  onCreated: () => void;
+}) {
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("18:00");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!startDate || !endDate) {
+      setErr("data de início e fim obrigatórias");
+      return;
+    }
+    // Monta ISO no timezone BR via new Date("YYYY-MM-DDTHH:MM-03:00")
+    const start = new Date(`${startDate}T${startTime}:00-03:00`);
+    const end = new Date(`${endDate}T${endTime}:00-03:00`);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+      setErr("data inválida");
+      return;
+    }
+    if (end.getTime() <= start.getTime()) {
+      setErr("fim precisa ser maior que início");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/agent-unavailability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: agentId,
+          start_at: start.toISOString(),
+          end_at: end.toISOString(),
+          reason: reason.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setErr(json.error ?? "falha");
+        return;
+      }
+      setStartDate("");
+      setEndDate("");
+      setReason("");
+      onCreated();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="add-unavail-form" onSubmit={submit}>
+      <label>
+        <span>Início</span>
+        <div className="datetime-pair">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </div>
+      </label>
+      <label>
+        <span>Fim</span>
+        <div className="datetime-pair">
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+          />
+        </div>
+      </label>
+      <label>
+        <span>Motivo (opcional)</span>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="férias, consulta…"
+        />
+      </label>
+      <button type="submit" disabled={busy} className="add-window-btn">
+        {busy ? "Adicionando…" : "+ Adicionar bloqueio"}
+      </button>
+      {err ? <span className="add-window-err">{err}</span> : null}
+    </form>
+  );
+}
+
+function fmtDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
 }
 
 function WindowChip({

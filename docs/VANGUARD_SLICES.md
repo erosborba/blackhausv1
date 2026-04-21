@@ -223,15 +223,25 @@ merge**. Sem isso, qualquer prompt change é fé.
 - Considera `visits` já marcadas (dedupe)
 - DoD: 10 unit tests cobrindo overlap, weekend skip, timezone DST
 
-### [ ] 2.2 · Google Calendar OAuth
-- `/ajustes/calendario` — corretor conecta conta
-- Token + refresh_token guardados encrypted em `agent_integrations`
-- DoD: conectar + listar próximos 5 eventos funciona
+### [x] 2.2' · `.ics` no booking (substitui Google Calendar OAuth)
+- Decisão 2026-04-22: Google Calendar era otimização prematura pra
+  1 corretor. `.ics` anexado no WhatsApp dá 80% do valor (lead e
+  corretor adicionam no calendar nativo do celular) com 5% do custo.
+- `src/lib/ics.ts` — gerador RFC 5545 puro + 10 unit tests
+- `evolution.ts > sendDocument` — anexa arquivo no WhatsApp
+- `book_visit` e `reschedule_visit` mandam `.ics` após o texto
+- DoD: lead recebe arquivo, toca, evento aparece no Apple/Google Calendar
 
-### [ ] 2.3 · Calendar write-through
-- Quando visita é marcada → cria evento no calendar do corretor
-- Inclui lead info, link /inbox/<id>, endereço do empreendimento
-- DoD: evento aparece no Google Calendar em < 5s
+### [x] 2.3' · Bloqueios pontuais (substitui Calendar write-through)
+- Decisão 2026-04-22: em vez de escrever no Google Calendar do
+  corretor, corretor registra bloqueios (férias, consulta) direto
+  na nossa agenda. Mesma UX, zero dependência externa.
+- Tabela `agent_unavailability (agent_id, start_at, end_at, reason)`
+- `slot-allocator.BusyVisit.duration_min` (novo campo opcional) trata
+  como busy de duração arbitrária
+- `/api/admin/agent-unavailability` CRUD
+- UI em `/ajustes?tab=agenda` com seção "Bloqueios" por corretor
+- DoD: bloqueio criado via UI some dos slots propostos pela Bia
 
 ### [x] 2.4 · Tool `propose_visit_slots`
 - Substitui/complementa `check-availability.ts`

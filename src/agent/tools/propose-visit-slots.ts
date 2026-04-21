@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
+import { fetchUnavailabilityAsBusy } from "@/lib/agent-availability";
 import {
   allocateSlots,
   formatSlotPtBR,
@@ -103,12 +104,21 @@ export async function proposeVisitSlots(
     // sugerir horários livres e o `book_visit` validar na hora do que
     // falhar o tool).
   }
-  const busy = ((visitRows ?? []) as Array<{
+  const busyVisits = ((visitRows ?? []) as Array<{
     agent_id: string | null;
     scheduled_at: string;
   }>)
     .filter((v): v is BusyVisit => !!v.agent_id && !!v.scheduled_at)
     .map((v) => ({ agent_id: v.agent_id, scheduled_at: v.scheduled_at }));
+
+  // 2b. Bloqueios pontuais (agent_unavailability — Slice 2.3').
+  //     Convertidos pra BusyVisit com duration_min explícito.
+  const unavail = await fetchUnavailabilityAsBusy({
+    agent_ids: agentIds,
+    from: new Date(fromIso),
+    to: new Date(toIso),
+  });
+  const busy: BusyVisit[] = [...busyVisits, ...unavail];
 
   // 3. Calcula slots livres.
   const all = allocateSlots({

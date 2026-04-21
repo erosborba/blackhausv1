@@ -3,7 +3,8 @@ import {
   updateVisitStatus,
   type Visit,
 } from "@/lib/visits";
-import { sendText } from "@/lib/evolution";
+import { sendText, sendDocument } from "@/lib/evolution";
+import { buildIcs, icsToBase64 } from "@/lib/ics";
 import { formatSlotPtBR } from "@/lib/slot-allocator";
 
 /**
@@ -122,6 +123,35 @@ export async function rescheduleVisit(
         visit_id: validated.visit_id,
         text,
       };
+    }
+
+    // .ics atualizado (SEQUENCE=1, METHOD=REQUEST) pra o calendar do
+    // lead substituir o evento antigo. Reusa o mesmo UID da visita
+    // original — se não der pra resgatar (ex: criação pelo fluxo legado
+    // sem UID estável), usa o id novo, o pior caso é duplicar evento.
+    try {
+      const ics = buildIcs({
+        uid: `visit-${visit.id}@blackhaus`,
+        startAt: newWhen.toISOString(),
+        durationMin: 60,
+        summary: "Visita Blackhaus (reagendada)",
+        description: text,
+        method: "REQUEST",
+        sequence: 1,
+      });
+      await sendDocument({
+        to: input.lead_phone,
+        mediaBase64: icsToBase64(ics),
+        fileName: "visita-reagendada.ics",
+        mimetype: "text/calendar",
+        caption: "Agenda atualizada — toca pra substituir o evento antigo.",
+        delayMs: 1200,
+      });
+    } catch (e) {
+      console.error(
+        "[reschedule-visit] ics attachment failed:",
+        e instanceof Error ? e.message : e,
+      );
     }
   }
 
