@@ -57,7 +57,7 @@ export function AgendaTabs({
       ) : tab === "follow-ups" ? (
         <FollowUpsTab pending={pendingFu} sent={sentFu} />
       ) : (
-        <VisitasTab visits={visitsWeek} />
+        <VisitasTab visits={visitsWeek} dayIso={dayIso} />
       )}
     </>
   );
@@ -140,37 +140,160 @@ function FollowUpsTab({ pending, sent }: { pending: FollowUpRowData[]; sent: Fol
 
 // ── Aba: Visitas ────────────────────────────────────────────────────────
 
-function VisitasTab({ visits }: { visits: VisitWithContext[] }) {
-  const groups = useMemo(() => {
-    const byDay = new Map<string, VisitWithContext[]>();
-    for (const v of visits) {
-      const key = new Date(v.scheduled_at).toLocaleDateString("pt-BR", {
+/**
+ * View semanal: grid de 7 colunas (seg→dom) com visitas do corretor.
+ * A semana é ancorada no Monday da data de referência (`dayIso`). Visitas
+ * fora da semana (±1 semana do horizonte do server) aparecem agrupadas
+ * abaixo em "outras semanas" — raro, mas evita perder contexto.
+ *
+ * DoD 2.9: click em card → /inbox/<lead_id> (via VisitItem).
+ */
+function VisitasTab({ visits, dayIso }: { visits: VisitWithContext[]; dayIso: string }) {
+  const { weekDays, inWeek, outside } = useMemo(() => {
+    // Monday da semana de referência, no fuso BR.
+    const ref = new Date(`${dayIso}T12:00:00-03:00`);
+    const DOW_MAP: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+    const refDowStr = ref.toLocaleString("en-US", {
+      weekday: "short",
+      timeZone: "America/Sao_Paulo",
+    });
+    const refDow = DOW_MAP[refDowStr] ?? 1;
+    // Monday = dow 1. Delta pra voltar ao monday da semana.
+    const deltaToMon = refDow === 0 ? -6 : 1 - refDow;
+    const monday = new Date(ref.getTime() + deltaToMon * 24 * 3600 * 1000);
+    const days: { iso: string; label: string; short: string; isToday: boolean }[] = [];
+    const todayBr = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday.getTime() + i * 24 * 3600 * 1000);
+      const brLabel = d.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
         timeZone: "America/Sao_Paulo",
       });
-      if (!byDay.has(key)) byDay.set(key, []);
-      byDay.get(key)!.push(v);
+      const short = d
+        .toLocaleDateString("pt-BR", { weekday: "short", timeZone: "America/Sao_Paulo" })
+        .replace(".", "")
+        .slice(0, 3);
+      const yyyy = d.toLocaleString("en-US", { year: "numeric", timeZone: "America/Sao_Paulo" });
+      const mm = String(
+        Number(d.toLocaleString("en-US", { month: "numeric", timeZone: "America/Sao_Paulo" })),
+      ).padStart(2, "0");
+      const dd = String(
+        Number(d.toLocaleString("en-US", { day: "numeric", timeZone: "America/Sao_Paulo" })),
+      ).padStart(2, "0");
+      days.push({
+        iso: `${yyyy}-${mm}-${dd}`,
+        label: brLabel,
+        short,
+        isToday: brLabel === todayBr,
+      });
     }
-    return Array.from(byDay.entries()).sort(
-      ([a], [b]) => parseBr(a).getTime() - parseBr(b).getTime(),
-    );
-  }, [visits]);
 
-  if (visits.length === 0) {
-    return <div className="agenda-empty"><div className="empty-title">Nenhuma visita agendada</div></div>;
-  }
+    const inWk = new Map<string, VisitWithContext[]>();
+    days.forEach((d) => inWk.set(d.iso, []));
+    const out: VisitWithContext[] = [];
+    for (const v of visits) {
+      const d = new Date(v.scheduled_at);
+      const yyyy = d.toLocaleString("en-US", { year: "numeric", timeZone: "America/Sao_Paulo" });
+      const mm = String(
+        Number(d.toLocaleString("en-US", { month: "numeric", timeZone: "America/Sao_Paulo" })),
+      ).padStart(2, "0");
+      const dd = String(
+        Number(d.toLocaleString("en-US", { day: "numeric", timeZone: "America/Sao_Paulo" })),
+      ).padStart(2, "0");
+      const iso = `${yyyy}-${mm}-${dd}`;
+      if (inWk.has(iso)) inWk.get(iso)!.push(v);
+      else out.push(v);
+    }
+    for (const arr of inWk.values()) {
+      arr.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+    }
+    return { weekDays: days, inWeek: inWk, outside: out };
+  }, [visits, dayIso]);
+
+  const totalInWeek = Array.from(inWeek.values()).reduce((n, arr) => n + arr.length, 0);
+
   return (
-    <div className="agenda-groups">
-      {groups.map(([day, items]) => (
-        <section key={day} className="agenda-section">
-          <h2 className="section-h">{day}</h2>
+    <div className="agenda-week">
+      <div className="agenda-week-grid">
+        {weekDays.map((d) => {
+          const items = inWeek.get(d.iso) ?? [];
+          return (
+            <div
+              key={d.iso}
+              className={`agenda-week-col ${d.isToday ? "is-today" : ""}`}
+              data-empty={items.length === 0 ? "1" : undefined}
+            >
+              <div className="agenda-week-head">
+                <span className="agenda-week-dow">{d.short}</span>
+                <span className="agenda-week-date">{d.label}</span>
+              </div>
+              {items.length === 0 ? (
+                <div className="agenda-week-empty">—</div>
+              ) : (
+                <ul className="agenda-week-list">
+                  {items.map((v) => (
+                    <li key={v.id}>
+                      <WeekVisitCard v={v} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {totalInWeek === 0 && outside.length === 0 ? (
+        <div className="agenda-empty">
+          <div className="empty-title">Nenhuma visita agendada</div>
+          <div className="empty-sub">Nada nessa semana. Marca via Bia ou handoff.</div>
+        </div>
+      ) : null}
+
+      {outside.length > 0 ? (
+        <section className="agenda-section" style={{ marginTop: 28 }}>
+          <h2 className="section-h">Fora desta semana</h2>
+          <p className="section-sub">{outside.length} visita(s) em outras semanas do horizonte.</p>
           <ul className="agenda-list">
-            {items.map((v) => (
-              <li key={v.id}><VisitItem v={v} /></li>
-            ))}
+            {outside
+              .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+              .map((v) => (
+                <li key={v.id}>
+                  <VisitItem v={v} />
+                </li>
+              ))}
           </ul>
         </section>
-      ))}
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * Variante compacta do VisitItem pro grid semanal — mais verticalmente
+ * denso, mostra só hora + nome + emp.
+ */
+function WeekVisitCard({ v }: { v: VisitWithContext }) {
+  const tone = VISIT_STATUS_TONE[v.status];
+  return (
+    <Link href={`/inbox/${v.lead_id}`} className={`agenda-week-card tone-${tone}`}>
+      <div className="agenda-week-card-time">{fmtTime(v.scheduled_at)}</div>
+      <div className="agenda-week-card-name">
+        {v.lead_name ?? v.lead_phone ?? v.lead_id.slice(0, 6)}
+      </div>
+      {v.empreendimento_nome ? (
+        <div className="agenda-week-card-emp">{v.empreendimento_nome}</div>
+      ) : null}
+    </Link>
   );
 }
 
@@ -253,7 +376,3 @@ function fmtDateTime(iso: string): string {
   });
 }
 
-function parseBr(dmy: string): Date {
-  const [d, m, y] = dmy.split("/").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
-}

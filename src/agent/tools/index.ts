@@ -17,3 +17,24 @@ export {
   type ScheduleVisitInput,
   type ScheduleVisitOutput,
 } from "./schedule-visit";
+
+export {
+  proposeVisitSlots,
+  type ProposeVisitSlotsInput,
+  type ProposeVisitSlotsOutput,
+} from "./propose-visit-slots";
+
+export {
+  bookVisit,
+  type BookVisitInput,
+  type BookVisitOutput,
+} from "./book-visit";
+
+export {
+  rescheduleVisit,
+  cancelVisit,
+  type RescheduleVisitInput,
+  type RescheduleVisitOutput,
+  type CancelVisitInput,
+  type CancelVisitOutput,
+} from "./reschedule-visit";

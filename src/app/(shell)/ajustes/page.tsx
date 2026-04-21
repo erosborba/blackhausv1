@@ -8,17 +8,19 @@ import { AjustesClient } from "./client";
 import { UsageTab } from "@/components/ajustes/UsageTab";
 import { ManutencaoTab } from "@/components/ajustes/ManutencaoTab";
 import { PerfisTab } from "@/components/ajustes/PerfisTab";
+import { AgendaTab } from "@/components/ajustes/AgendaTab";
 import "./ajustes.css";
 
 export const dynamic = "force-dynamic";
 
-type TabKey = "ia" | "usage" | "manutencao" | "perfis";
+type TabKey = "ia" | "usage" | "manutencao" | "perfis" | "agenda";
 
 const TAB_LABEL: Record<TabKey, string> = {
   ia: "IA & Operação",
   usage: "Usage & Custos",
   manutencao: "Manutenção",
   perfis: "Perfis",
+  agenda: "Agenda",
 };
 
 export default async function AjustesPage({
@@ -33,7 +35,10 @@ export default async function AjustesPage({
 
   const sp = await searchParams;
   const tab: TabKey =
-    sp?.tab === "usage" || sp?.tab === "manutencao" || sp?.tab === "perfis"
+    sp?.tab === "usage" ||
+    sp?.tab === "manutencao" ||
+    sp?.tab === "perfis" ||
+    sp?.tab === "agenda"
       ? sp.tab
       : "ia";
 
@@ -72,6 +77,9 @@ export default async function AjustesPage({
                 Manutenção
               </TabLink>
             ) : null}
+            <TabLink active={tab === "agenda"} href="/ajustes?tab=agenda">
+              Agenda
+            </TabLink>
             <TabLink active={tab === "perfis"} href="/ajustes?tab=perfis">
               Perfis
             </TabLink>
@@ -82,6 +90,7 @@ export default async function AjustesPage({
           {tab === "ia" ? <AjustesClient /> : null}
           {tab === "usage" ? <UsageTab /> : null}
           {tab === "manutencao" ? <ManutencaoTab /> : null}
+          {tab === "agenda" ? <AgendaTab /> : null}
           {tab === "perfis" ? <PerfisTab initialRole={currentRole} /> : null}
         </div>
       </main>

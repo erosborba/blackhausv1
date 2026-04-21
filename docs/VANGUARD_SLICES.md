@@ -215,7 +215,7 @@ merge**. Sem isso, qualquer prompt change é fé.
 **Objetivo**: Bia marca visita fim-a-fim. Google Calendar + slot allocator
 + lembretes + pós-visita.
 
-### [ ] 2.1 · Schema availability + slot allocator
+### [x] 2.1 · Schema availability + slot allocator
 - Tabela `agent_availability` (agent_id, weekday, start_hour, end_hour,
   timezone default 'America/Sao_Paulo')
 - Função pura `src/lib/slot-allocator.ts`: input = agents + duração;
@@ -233,13 +233,13 @@ merge**. Sem isso, qualquer prompt change é fé.
 - Inclui lead info, link /inbox/<id>, endereço do empreendimento
 - DoD: evento aparece no Google Calendar em < 5s
 
-### [ ] 2.4 · Tool `propose_visit_slots`
+### [x] 2.4 · Tool `propose_visit_slots`
 - Substitui/complementa `check-availability.ts`
 - Input: lead_id, empreendimento_id, preferred_date?
 - Output: 3 slot candidates como string formatada pro Bia usar
 - DoD: Bia propõe slots reais no prompt (eval case adicionado)
 
-### [ ] 2.5 · Tool `book_visit` v2
+### [x] 2.5 · Tool `book_visit` v2
 - Hoje `schedule-visit.ts` só grava; v2 deve:
   - Validar slot disponível (anti-double-book)
   - Criar evento no calendar
@@ -247,23 +247,23 @@ merge**. Sem isso, qualquer prompt change é fé.
   - Enviar confirmação WhatsApp pro lead
 - DoD: fluxo E2E lead→confirmação em staging
 
-### [ ] 2.6 · Lembretes 24h + 2h
+### [x] 2.6 · Lembretes 24h + 2h
 - Worker cron que varre `visits` com `scheduled_at` em [+23h, +25h] e
   [+1h, +3h] → dispara WhatsApp
 - Tabela `visit_reminders_sent` pra idempotência
 - DoD: 2 lembretes chegam pro lead de teste
 
-### [ ] 2.7 · Follow-up pós-visita
+### [x] 2.7 · Follow-up pós-visita
 - Dia seguinte 9h (timezone lead) → Bia pergunta "como foi a visita?"
 - Reagenda como novo `follow_up`
 - DoD: msg chega; resposta do lead entra no qualification
 
-### [ ] 2.8 · Reagendamento + cancelamento
+### [x] 2.8 · Reagendamento + cancelamento
 - Lead fala "não posso mais" → Bia propõe nova data
 - Cancela evento do calendar
 - DoD: fluxo funciona via eval + manual
 
-### [ ] 2.9 · UI /agenda atualizada
+### [x] 2.9 · UI /agenda atualizada
 - Substitui placeholder por view semanal real (própria do corretor)
 - Click em visita → /inbox/<lead_id>
 - DoD: página funcional + responsiva

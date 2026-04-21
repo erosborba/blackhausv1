@@ -18,7 +18,8 @@
     "webhook:status": "node scripts/set-webhook.mjs status",
     "eval": "node scripts/eval-run.mjs",
     "eval:seed": "node scripts/eval-seed.mjs",
-    "eval:emps": "node scripts/eval-list-emps.mjs"
+    "eval:emps": "node scripts/eval-list-emps.mjs",
+    "test:unit": "node --test --experimental-strip-types --no-warnings src/lib/__tests__/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

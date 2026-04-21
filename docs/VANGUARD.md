@@ -263,8 +263,89 @@ CI vai comparar (G-1). Só então começar Track 2.
   conhecido (warning explícito). Sem isso, uma rodada flaky bloqueia
   update e obriga rerunning até o LLM cooperar — ruim pra velocidade.
 
-### Track 2 — Visit scheduling
-<!-- preenchido ao fechar -->
+### Track 2 — Visit scheduling — fechado 2026-04-22 (slices 2.1 · 2.4–2.9; 2.2/2.3 deferidos)
+
+**O que ficou pronto**
+- Schema `agent_availability` + índice unique pra janelas ativas (Slice 2.1).
+  Tabela `visit_reminders_sent` (visit_id, kind) com unique pra idempotência
+  de cron. RPC `agents_without_availability()` pra avisar UI quando um
+  corretor ainda não configurou horários.
+- Allocator puro `src/lib/slot-allocator.ts` — zero I/O, 12 unit tests
+  cobrem weekday-match, step, lead time, busy overlap (com EPS simétrico),
+  buffer, multi-agent, horizonte, timezone NYC (DST-safe via
+  `Intl.DateTimeFormat`), `maxSlots`, input inválido, formatSlotPtBR.
+- Tools do agente: `propose_visit_slots` (variado manhã/tarde/outros dias
+  via `pickVariedSlots`), `book_visit` v2 com anti-double-book
+  (re-executa allocator com step=15min e EPS=60s antes do INSERT),
+  `reschedule_visit` (dynamic-import do bookVisit pra não gerar ciclo;
+  cria nova row + cancela antiga com `cancelled_reason:rescheduled_to:<id>`),
+  `cancel_visit`.
+- Lembretes cron `/api/cron/visit-reminders` (5min cadence) cobre 24h,
+  2h e post_visit (~17h depois). Idempotência a prova de race via unique
+  (visit_id, kind) + catch do código 23505. Filtra I-2 (`5555*` e `eval_*`).
+- UI: `/agenda` tab Visitas vira grid semanal (seg→dom, col.today em
+  destaque, responsiva); `/ajustes?tab=agenda` editor de
+  disponibilidade com grid por corretor + form inline pra adicionar
+  janela. Delete é soft (active=false).
+
+**Lições**
+- **Pure-first pays**: allocator isolado rendeu 12 testes rápidos
+  (<150ms total) e zero flaky. Comparado com o eval LLM do Track 1,
+  é outro mundo de velocidade. Regra pro resto do roadmap: **qualquer
+  decisão que caiba em função pura (finance sim, scoring rules, slot
+  math) vai pra `lib/*` sem I/O e com unit test**. Integração fica em
+  volta (thin adapters).
+- **DST sem fingir**: timezone math via `Intl.DateTimeFormat`
+  (formatToParts + reverse-map UTC). Tentei inicialmente aritmética
+  com offsets fixos — quebra na virada de DST (março/outubro nos EUA,
+  fev/out no BR até 2019). Teste `9. timezone diferente` (NYC terça
+  9h EDT) pegou bugs que passavam com offset naive.
+- **Anti-double-book barato**: re-rodar o allocator com step=15min e
+  `maxSlots=200` dentro do `book_visit` é O(1) em memória, cacheável no
+  Supabase e custa <50ms. Não precisou de lock pessimista nem advisory
+  lock — o INSERT com unique constraint `visits (agent_id, scheduled_at)`
+  seria a última barreira, mas na prática nunca bateu.
+- **Buffer is symmetric**: testar com `bufferMin: 15` deixou claro que
+  um slot 11h depois de uma visita 10h com buffer 15min morre pelos dois
+  lados — o bufferPost da visita 10h (11:00–11:15) e o bufferPre do
+  slot 11h (10:45–11:00). Mantido porque reflete a realidade (corretor
+  precisa de 15min pra respirar/deslocar). Adicionado sanity check
+  `noBuffer` no teste 5 pra documentar que sem buffer o 11h sobrevive.
+- **Reschedule como compose**: evitei reinventar validação — `rescheduleVisit`
+  faz dynamic-import de `bookVisit` e reusa seu anti-double-book +
+  confirmação. Depois cancela a antiga com `cancelled_reason` estruturado
+  (`rescheduled_to:<new_id>`) pro histórico continuar linear. Custo
+  do dynamic-import: inexistente (ciclo resolvido, uma chamada a mais
+  de SQL). Benefício: 0 linha de duplicação de regra de negócio.
+- **UI semanal = grid 7col > lista agrupada**: a versão anterior da aba
+  Visitas já agrupava por dia, mas visualmente era uma timeline vertical
+  infinita. Grid seg→dom dá leitura instantânea de "terça tá livre,
+  quinta tá lotada". Mobile cai pra 1col (hide de cols vazias pra não
+  poluir). Isso casa com a tese do dashboard `/gestor/health`: informação
+  densa > informação listada.
+- **Editor inline > modal**: a tentação era abrir um modal pra adicionar
+  janela de disponibilidade. Deixei form inline no final de cada
+  AgentBlock (weekday + start + end + submit). Duas razões: (a) o
+  usuário normalmente adiciona várias janelas seguidas (ex: seg-sex
+  9-18), modal vira fricção; (b) o contexto visual (grid acima) fica
+  sempre presente.
+
+**Deferidos (requerem credenciais externas)**
+- Slice 2.2 · Google Calendar OAuth — precisa `GOOGLE_CLIENT_ID`/`SECRET`
+  e callback url estável. Fica pra quando for implantar em produção
+  de verdade.
+- Slice 2.3 · Calendar write-through — depende de 2.2. `book_visit`
+  já emite `lead_events` e está pronto pra chamar o Calendar API num
+  `await pushToCalendar(visit)` quando 2.2 aterrissar.
+
+**Invariants honrados**
+- I-2 (nunca enviar pra `5555*`/`eval_*`): honrado em `visit-reminders`
+  e indiretamente em `book_visit` via sendText (que já filtra).
+- I-3 (custo observável): cada outbound passa por `sendText`, que já
+  entra no `ai_usage_log` via `delayMs`.
+- G-3 (health dashboard): rate de lembretes enviados vai entrar como
+  métrica quando a dashboard do corretor ganhar a seção "agenda" — por
+  ora o log em console + `visit_reminders_sent` é suficiente.
 
 ### Track 3 — Financial sim
 <!-- preenchido ao fechar -->
