@@ -36,6 +36,14 @@ export async function PATCH(req: NextRequest) {
       );
     }
   }
+  if (body.key === "current_role") {
+    if (body.value !== "admin" && body.value !== "corretor") {
+      return NextResponse.json(
+        { ok: false, error: "current_role deve ser 'admin' ou 'corretor'" },
+        { status: 400 },
+      );
+    }
+  }
 
   try {
     await updateSetting(body.key, String(body.value));

@@ -1,0 +1,248 @@
+/* /empreendimentos — grid + detail */
+
+.empreendimentos-page {
+  padding: 12px 28px 40px;
+  overflow-y: auto;
+}
+
+.empre-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin: 8px 0 24px;
+  gap: 16px;
+  max-width: 1240px;
+}
+
+.empre-head .display {
+  font-size: 40px;
+  margin: 0;
+  line-height: 1.05;
+}
+
+.empre-sub {
+  color: var(--ink-3);
+  font-size: 14px;
+  margin: 6px 0 0;
+}
+
+.top-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  color: var(--ink-2);
+  font-size: 13px;
+  text-decoration: none;
+  transition: border-color 120ms, color 120ms;
+}
+.top-cta:hover {
+  border-color: var(--accent, #6aa6ff);
+  color: var(--accent, #6aa6ff);
+}
+
+/* Grid ------------------------------------------------------------------ */
+
+.empre-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  max-width: 1240px;
+}
+
+.empre-card {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 120ms, transform 120ms;
+}
+
+.empre-card:hover {
+  border-color: var(--accent, #6aa6ff);
+  transform: translateY(-1px);
+}
+
+.empre-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.empre-cover {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empre-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.empre-cover-ph {
+  font-size: 48px;
+  font-weight: 200;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+.empre-cover-fade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 60%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  pointer-events: none;
+}
+
+.empre-status-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  letter-spacing: 0.02em;
+}
+.empre-status-pill.status-lancamento {
+  background: rgba(106, 166, 255, 0.85);
+  color: #081020;
+}
+.empre-status-pill.status-em_obras {
+  background: rgba(243, 199, 110, 0.85);
+  color: #2a1f00;
+}
+.empre-status-pill.status-pronto_para_morar {
+  background: rgba(123, 200, 147, 0.85);
+  color: #08200f;
+}
+
+.empre-card-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empre-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.empre-card-loc {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.empre-card-price {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+
+.empre-card-avail {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.empre-card-avail.empty {
+  color: var(--ink-5, var(--ink-4));
+  font-size: 11px;
+}
+
+.pill-avail {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(123, 200, 147, 0.15);
+  color: #9bd6ad;
+}
+
+.pill-total {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-4);
+}
+
+.pill-sold {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-4);
+  text-decoration: line-through;
+}
+
+.empre-card-typs {
+  display: flex;
+  gap: 5px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.typ-chip {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--ink-3);
+}
+.typ-chip.ghost {
+  color: var(--ink-4);
+}
+
+/* Empty ----------------------------------------------------------------- */
+
+.empre-empty {
+  padding: 60px 20px;
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.empre-empty .empty-title {
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.empre-empty .empty-sub {
+  font-size: 13px;
+  color: var(--ink-4);
+  margin-top: 8px;
+  line-height: 1.6;
+}
+
+.empre-empty a {
+  color: var(--accent, #6aa6ff);
+  text-decoration: none;
+}

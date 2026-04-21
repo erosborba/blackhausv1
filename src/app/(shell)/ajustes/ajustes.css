@@ -1,0 +1,311 @@
+/* /ajustes — IA, Usage, Manutenção, Perfis */
+
+.ajustes-page {
+  padding: 12px 28px 40px;
+  overflow-y: auto;
+}
+
+.ajustes-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin: 8px 0 24px;
+  gap: 16px;
+  max-width: 1100px;
+  flex-wrap: wrap;
+}
+
+.ajustes-head .display {
+  font-size: 40px;
+  margin: 0;
+  line-height: 1.05;
+}
+
+.ajustes-sub {
+  color: var(--ink-3);
+  font-size: 14px;
+  margin: 6px 0 0;
+  max-width: 620px;
+}
+
+.ajustes-tabs-nav {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.ajustes-tab {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color 120ms, background 120ms;
+}
+.ajustes-tab:hover {
+  color: var(--ink-2);
+}
+.ajustes-tab.is-active {
+  color: var(--ink);
+  background: var(--surface-3);
+  box-shadow: var(--sh-in-sm, inset 0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.ajustes-body {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+/* Usage tab ---------------------------------------------------------- */
+
+.usage-window {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 18px;
+}
+.usage-window-btn {
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.usage-window-btn.is-active {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.usage-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.usage-card {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.usage-card-label {
+  color: var(--ink-3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.usage-card-value {
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+.usage-card-hint {
+  color: var(--ink-4);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.usage-section {
+  margin-bottom: 24px;
+}
+.usage-section-title {
+  font-size: 13px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px;
+  font-weight: 500;
+}
+
+.usage-table {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.usage-tr {
+  display: grid;
+  grid-template-columns: 1fr 90px 100px 90px;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--hairline);
+}
+.usage-tr:last-child {
+  border-bottom: none;
+}
+.usage-tr-head {
+  color: var(--ink-3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-3);
+}
+.usage-tr .num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.usage-spark {
+  height: 60px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+.usage-spark-bar {
+  flex: 1;
+  min-width: 3px;
+  background: linear-gradient(180deg, var(--accent, #6aa6ff) 0%, rgba(106, 166, 255, 0.4) 100%);
+  border-radius: 2px 2px 0 0;
+  opacity: 0.8;
+}
+
+/* Manutenção --------------------------------------------------------- */
+
+.manut-card {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+.manut-card h3 {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+.manut-card p {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin: 0 0 14px;
+  line-height: 1.55;
+}
+
+.manut-run {
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  color: var(--ink-2);
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.manut-run:hover:not(:disabled) {
+  border-color: var(--accent, #6aa6ff);
+  color: var(--accent, #6aa6ff);
+}
+.manut-run:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.manut-result {
+  margin-top: 14px;
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+.manut-result.manut-error {
+  border-color: rgba(217, 107, 107, 0.5);
+  color: #d96b6b;
+}
+
+/* Perfis ------------------------------------------------------------- */
+
+.perfil-card {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+
+.perfil-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.perfil-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--surface-3);
+  color: var(--ink);
+}
+.perfil-chip.admin {
+  background: rgba(106, 166, 255, 0.18);
+  color: #8fb7e5;
+}
+.perfil-chip.corretor {
+  background: rgba(123, 200, 147, 0.18);
+  color: #9bd6ad;
+}
+
+.perfil-switch {
+  display: flex;
+  gap: 8px;
+}
+.perfil-switch button {
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  color: var(--ink-2);
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.perfil-switch button:hover:not(:disabled) {
+  border-color: var(--accent, #6aa6ff);
+  color: var(--accent, #6aa6ff);
+}
+.perfil-switch button.is-active {
+  border-color: var(--accent, #6aa6ff);
+  color: var(--accent, #6aa6ff);
+}
+.perfil-switch button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.perfil-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--ink-4);
+  line-height: 1.6;
+}
+.perfil-note code {
+  background: var(--surface-3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}

@@ -206,8 +206,8 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
         faixa_preco_max:
           typeof input.faixa_preco_max === "number" ? input.faixa_preco_max : undefined,
       } as Parameters<typeof searchByQualification>[0];
-      const result = await searchByQualification(q, 5);
-      return capToolResult(result || "(nenhum empreendimento bateu com os filtros)");
+      const { text } = await searchByQualification(q, 5);
+      return capToolResult(text || "(nenhum empreendimento bateu com os filtros)");
     }
     if (name === "buscar_empreendimentos_semantico") {
       const { text } = await searchSemantic(String(input.pergunta ?? ""), 4);

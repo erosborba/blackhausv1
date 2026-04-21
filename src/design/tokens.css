@@ -1,0 +1,136 @@
+/* blackhaus — design tokens (dark neumorphism, deep navy + electric blue).
+ * Fonte: project/hifi-dark/tokens.css (mockup).
+ * Escopado no :root — usar sempre via var(--token).
+ * Não editar valores aqui; propostas de mudança passam por design review.
+ */
+:root {
+  /* deep navy base */
+  --bg: #0e1624;
+  --bg-2: #0a1120;
+  --bg-3: #111b2d;
+  --surface: #152136;     /* raised cards */
+  --surface-2: #18253d;
+  --surface-3: #0f1828;   /* recessed */
+  --surface-hi: #1b2a44;  /* lit edge */
+
+  --ink: #eaf1ff;
+  --ink-2: #c7d2e6;
+  --ink-3: #8ea0bf;
+  --ink-4: #64748b;
+  --ink-5: #3d4a63;
+
+  --hairline: rgba(255, 255, 255, 0.04);
+  --hairline-2: rgba(255, 255, 255, 0.09);
+
+  /* brand accents - electric */
+  --blue: #4aa3ff;
+  --blue-2: #2563eb;
+  --blue-deep: #0b2a55;
+  --blue-tint: rgba(74, 163, 255, 0.14);
+  --blue-tint-2: rgba(74, 163, 255, 0.28);
+  --blue-ink: #8fc0ff;
+  --cyan: #5eead4;
+
+  /* status */
+  --hot: #ff7a59;
+  --hot-ink: #ffb399;
+  --warm: #ffc861;
+  --warm-ink: #ffe0a3;
+  --ok: #34d399;
+  --ok-ink: #86efac;
+  --cool: #60a5fa;
+
+  /* neumorphic light + dark */
+  --n-light: rgba(79, 116, 176, 0.18);
+  --n-dark: rgba(0, 3, 10, 0.78);
+
+  /* shadows */
+  --sh-neu: -6px -6px 12px var(--n-light), 6px 6px 16px var(--n-dark);
+  --sh-neu-sm: -3px -3px 6px var(--n-light), 3px 3px 8px var(--n-dark);
+  --sh-neu-lg: -10px -10px 24px var(--n-light), 14px 14px 30px var(--n-dark);
+  --sh-in: inset 3px 3px 6px var(--n-dark), inset -3px -3px 6px var(--n-light);
+  --sh-in-sm: inset 2px 2px 4px var(--n-dark), inset -2px -2px 4px var(--n-light);
+  --sh-card: 0 10px 30px -12px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --sh-pop: 0 18px 50px -14px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --sh-glow: 0 0 0 1px rgba(74, 163, 255, 0.35), 0 10px 30px -10px rgba(74, 163, 255, 0.35);
+
+  /* radii */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  /* fonts */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Instrument Serif", "Times New Roman", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* body + base */
+.bh {
+  /* scope class — só rotas novas sob (shell) recebem isso.
+   * Mantém /admin/* legacy intacto até a deprecação.
+   */
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 800px at 10% -10%, rgba(37, 99, 235, 0.18), transparent 60%),
+    radial-gradient(900px 700px at 110% 10%, rgba(94, 234, 212, 0.08), transparent 60%),
+    radial-gradient(1000px 900px at 50% 120%, rgba(37, 99, 235, 0.12), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+  font-feature-settings: "ss01", "cv11";
+  min-height: 100vh;
+}
+
+.bh *, .bh *::before, .bh *::after { box-sizing: border-box; }
+.bh h1, .bh h2, .bh h3, .bh h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+.bh .display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  font-style: italic;
+}
+.bh .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.bh .muted { color: var(--ink-3); }
+.bh .mono {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-4);
+  text-transform: uppercase;
+}
+.bh .small { font-size: 12px; }
+.bh .xs { font-size: 11.5px; color: var(--ink-3); }
+.bh .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* layout helpers */
+.bh .row { display: flex; align-items: center; }
+.bh .row.g4 { gap: 4px; } .bh .row.g6 { gap: 6px; } .bh .row.g8 { gap: 8px; }
+.bh .row.g10 { gap: 10px; } .bh .row.g12 { gap: 12px; } .bh .row.g16 { gap: 16px; }
+.bh .row.between { justify-content: space-between; }
+.bh .col { display: flex; flex-direction: column; }
+.bh .col.g4 { gap: 4px; } .bh .col.g6 { gap: 6px; } .bh .col.g8 { gap: 8px; }
+.bh .col.g10 { gap: 10px; } .bh .col.g12 { gap: 12px; } .bh .col.g16 { gap: 16px; }
+
+.bh .scroll { overflow-y: auto; overflow-x: hidden; }
+.bh .scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.bh .scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
+.bh .scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* reduzir animação quando usuário prefere */
+@media (prefers-reduced-motion: reduce) {
+  .bh *, .bh *::before, .bh *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

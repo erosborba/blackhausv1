@@ -1,20 +1,14 @@
-import { supabaseAdmin } from "@/lib/supabase";
-import { InboxClient, type InboxItem } from "./inbox-client";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-async function loadInbox(): Promise<InboxItem[]> {
-  const sb = supabaseAdmin();
-  const { data, error } = await sb.rpc("inbox_items", { search_text: null });
-  if (error) {
-    console.error("[inbox] load error:", error);
-    return [];
-  }
-  return (data ?? []) as InboxItem[];
-}
-
-export default async function LeadsPage() {
-  const initial = await loadInbox();
-  return <InboxClient initial={initial} />;
+/**
+ * Phase 1: o inbox legacy foi substituído por /inbox (3-col com score,
+ * priority rail, HUD de sugestões). Mantemos esta rota só pra não quebrar
+ * bookmarks — redireciona sem feedback.
+ *
+ * Depreciação final na Phase 3 quando o legacy /admin/* todo for aposentado.
+ */
+export default function LegacyLeadsPage() {
+  redirect("/inbox");
 }

@@ -1,6 +1,8 @@
 import { Annotation, messagesStateReducer } from "@langchain/langgraph";
 import type { BaseMessage } from "@langchain/core/messages";
 import type { Qualification } from "@/lib/leads";
+import type { HandoffReason, HandoffUrgency } from "@/lib/handoff-copy";
+import type { RetrievedSource } from "./retrieval";
 
 export type Intent =
   | "saudacao"
@@ -28,6 +30,21 @@ export const SDRState = Annotation.Root({
   stage: Annotation<Stage>({ reducer: (_, n) => n, default: () => "greet" }),
   missingFields: Annotation<string[]>({ reducer: (_, n) => n, default: () => [] }),
   retrieved: Annotation<string>({ reducer: (_, n) => n, default: () => "" }),
+  /**
+   * Empreendimentos citados no retrieval do turno atual. Gravado em
+   * `messages.sources` quando o answerNode produz resposta — permite a UI
+   * exibir pills "📎 Empreendimento X" abaixo do bubble da Bia.
+   */
+  retrievedSources: Annotation<RetrievedSource[]>({
+    reducer: (_, n) => n,
+    default: () => [],
+  }),
+  /**
+   * Score 0-100 calculado pelo router a cada turno (fit + stage + engagement
+   * + urgency — ver `@/lib/lead-score`). Persistido em `leads.score` pelo
+   * webhook. Usado pro Priority Rail e pra ordenação do inbox.
+   */
+  score: Annotation<number>({ reducer: (_, n) => n, default: () => 0 }),
   /**
    * Confiança do retrieval semântico no turno atual:
    *   - "strong": há chunks claramente relacionados (topScore ≥ threshold)
@@ -82,32 +99,19 @@ export const SDRState = Annotation.Root({
   }),
 });
 
-export type HandoffReason =
-  | "lead_pediu_humano"
-  | "fora_de_escopo"
-  | "objecao_complexa"
-  | "ia_incerta"
-  | "urgencia_alta"
-  | "escalacao"
-  | "outro";
-
-export type HandoffUrgency = "baixa" | "media" | "alta";
-
-/** Copy canônica pra exibir no admin/notificação do corretor. */
-export const HANDOFF_REASON_LABEL: Record<HandoffReason, string> = {
-  lead_pediu_humano: "Lead pediu humano",
-  fora_de_escopo: "Fora de escopo",
-  objecao_complexa: "Objeção complexa (preço/prazo)",
-  ia_incerta: "IA incerta — precisa confirmar",
-  urgencia_alta: "Urgência alta",
-  escalacao: "Escalação (corretor não respondeu)",
-  outro: "Outro",
-};
-
-export const HANDOFF_URGENCY_EMOJI: Record<HandoffUrgency, string> = {
-  baixa: "🟢",
-  media: "🟡",
-  alta: "🔴",
-};
+/**
+ * Tipos e copy de handoff foram extraídos pra `@/lib/handoff-copy` (puro,
+ * sem deps server-only) pra que o UI client possa importar sem arrastar
+ * LangGraph/SDK. Re-exportamos aqui pra manter imports existentes funcionando.
+ */
+export {
+  HANDOFF_REASON_LABEL,
+  HANDOFF_REASON_ORDER,
+  HANDOFF_URGENCY_EMOJI,
+  HANDOFF_URGENCY_ORDER,
+  HANDOFF_URGENCY_TONE,
+  type HandoffReason,
+  type HandoffUrgency,
+} from "@/lib/handoff-copy";
 
 export type SDRStateType = typeof SDRState.State;

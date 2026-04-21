@@ -4,6 +4,7 @@ import type { Qualification } from "@/lib/leads";
 
 type Empreendimento = {
   id: string;
+  slug: string | null;
   nome: string;
   bairro: string | null;
   cidade: string | null;
@@ -12,6 +13,23 @@ type Empreendimento = {
   tipologias: Array<{ quartos?: number; area?: number; preco?: number }>;
   diferenciais: string[];
   descricao: string | null;
+};
+
+/**
+ * Source que a mensagem outbound carrega em `messages.sources`.
+ * UI do inbox mostra como pill "📎 Nome (bairro)" abaixo do bubble.
+ *
+ *   kind="semantic" → veio do pgvector (score = cosine similarity).
+ *   kind="filter"   → veio de searchByQualification (score = null).
+ */
+export type RetrievedSource = {
+  kind: "semantic" | "filter";
+  empreendimentoId: string;
+  slug: string | null;
+  nome: string;
+  bairro: string | null;
+  cidade: string | null;
+  score: number | null;
 };
 
 const fmtBRL = (n?: number | null) =>
@@ -57,7 +75,12 @@ function norm(s: string): string {
  *  - Match de bairro é feito em JS com normalização sem acento (Lindoia ≈ Lindóia),
  *    porque SQL `.in()` é exato. Fetchamos um pool maior e filtramos client-side.
  */
-export async function searchByQualification(q: Qualification, limit = 5): Promise<string> {
+export type FilterResult = {
+  text: string;
+  items: RetrievedSource[];
+};
+
+export async function searchByQualification(q: Qualification, limit = 5): Promise<FilterResult> {
   const sb = supabaseAdmin();
   let query = sb.from("empreendimentos").select("*").eq("ativo", true);
 
@@ -80,8 +103,19 @@ export async function searchByQualification(q: Qualification, limit = 5): Promis
   }
 
   rows = rows.slice(0, limit);
-  if (!rows.length) return "";
-  return rows.map(renderEmpreendimento).join("\n\n");
+  if (!rows.length) return { text: "", items: [] };
+
+  const items: RetrievedSource[] = rows.map((r) => ({
+    kind: "filter",
+    empreendimentoId: r.id,
+    slug: r.slug,
+    nome: r.nome,
+    bairro: r.bairro,
+    cidade: r.cidade,
+    score: null,
+  }));
+
+  return { text: rows.map(renderEmpreendimento).join("\n\n"), items };
 }
 
 export type SemanticResult = {
@@ -89,6 +123,8 @@ export type SemanticResult = {
   text: string;
   /** Maior similaridade (cosine 0..1) entre a query e os chunks. null se fallback/vazio. */
   topScore: number | null;
+  /** Empreendimentos citados (dedupe por id) — grava em messages.sources. */
+  items: RetrievedSource[];
 };
 
 /**
@@ -97,33 +133,77 @@ export type SemanticResult = {
  * Retorna também `topScore` (maior similaridade encontrada) pra que o
  * retrieveNode possa decidir se o contexto é forte o bastante pra a Bia
  * responder com confiança, ou se deve punt pro consultor humano.
+ *
+ * Os chunks vêm agrupados por empreendimento → `items` guarda um source
+ * por empreendimento (maior similaridade entre os chunks dele).
  */
 export async function searchSemantic(question: string, limit = 5): Promise<SemanticResult> {
+  const sb = supabaseAdmin();
   try {
     const queryEmbedding = await embed(question);
-    const sb = supabaseAdmin();
     const { data, error } = await sb.rpc("match_empreendimento_chunks", {
       query_embedding: queryEmbedding,
       match_count: limit,
       filter: {},
     });
     if (error) throw error;
-    const rows = (data ?? []) as Array<{ content: string; similarity?: number }>;
-    if (!rows.length) return { text: "", topScore: null };
+    const rows = (data ?? []) as Array<{
+      empreendimento_id: string;
+      content: string;
+      similarity?: number;
+    }>;
+    if (!rows.length) return { text: "", topScore: null, items: [] };
     const topScore = rows.reduce(
       (m, r) => (typeof r.similarity === "number" && r.similarity > m ? r.similarity : m),
       0,
     );
     const text = rows.map((c) => `• ${c.content}`).join("\n");
-    return { text, topScore: topScore || null };
+
+    // Dedupe por empreendimento_id, guardando o maior similarity de cada
+    const bestByEmp = new Map<string, number>();
+    for (const r of rows) {
+      const sc = typeof r.similarity === "number" ? r.similarity : 0;
+      const cur = bestByEmp.get(r.empreendimento_id);
+      if (cur === undefined || sc > cur) bestByEmp.set(r.empreendimento_id, sc);
+    }
+    const ids = [...bestByEmp.keys()];
+    let items: RetrievedSource[] = [];
+    if (ids.length) {
+      const { data: emps } = await sb
+        .from("empreendimentos")
+        .select("id, slug, nome, bairro, cidade")
+        .in("id", ids);
+      items = (emps ?? []).map((e) => ({
+        kind: "semantic" as const,
+        empreendimentoId: e.id as string,
+        slug: (e as { slug: string | null }).slug,
+        nome: (e as { nome: string }).nome,
+        bairro: (e as { bairro: string | null }).bairro,
+        cidade: (e as { cidade: string | null }).cidade,
+        score: bestByEmp.get(e.id as string) ?? null,
+      }));
+      items.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    }
+
+    return { text, topScore: topScore || null, items };
   } catch {
     // RAG opcional — sem chunks ainda, cai no catálogo bruto (sem score).
-    const sb = supabaseAdmin();
     const { data } = await sb.from("empreendimentos").select("*").eq("ativo", true).limit(limit);
-    if (!data?.length) return { text: "", topScore: null };
+    if (!data?.length) return { text: "", topScore: null, items: [] };
+    const rows = data as Empreendimento[];
+    const items: RetrievedSource[] = rows.map((r) => ({
+      kind: "filter",
+      empreendimentoId: r.id,
+      slug: r.slug,
+      nome: r.nome,
+      bairro: r.bairro,
+      cidade: r.cidade,
+      score: null,
+    }));
     return {
-      text: (data as Empreendimento[]).map(renderEmpreendimento).join("\n\n"),
+      text: rows.map(renderEmpreendimento).join("\n\n"),
       topScore: null,
+      items,
     };
   }
 }

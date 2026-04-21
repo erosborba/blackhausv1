@@ -31,6 +31,7 @@ import {
   type DetectedMedia,
 } from "@/lib/media";
 import { getSetting } from "@/lib/settings";
+import { emitLeadEvent } from "@/lib/lead-events";
 
 const HELP_TEXT = `👋 Comandos:
 • Responder (quote) uma notificação/mensagem minha → eu repasso pro lead.
@@ -297,7 +298,20 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
   const { lead, combinedText, sendTarget } = args;
   sendPresence(sendTarget, "composing").catch(() => {});
 
-  const { reply, needsHandoff, qualification, handoffReason, handoffUrgency } = await runSDR({
+  const prevScore = lead.score ?? 0;
+  const prevStage = lead.stage ?? null;
+  const prevStatus = lead.status ?? null;
+
+  const {
+    reply,
+    needsHandoff,
+    qualification,
+    handoffReason,
+    handoffUrgency,
+    score,
+    stage: nextStage,
+    sources,
+  } = await runSDR({
     lead,
     userText: combinedText,
   });
@@ -309,15 +323,66 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
       direction: "outbound",
       role: "assistant",
       content: reply,
+      sources: sources.length > 0 ? sources : null,
     });
   }
 
+  // status muda pra "qualified" só se ainda não estava em won/lost — evita
+  // regredir leads já fechados. stage vai literalmente pro que o router
+  // decidiu (handoff_humano já vira "handoff" via router).
+  const nextStatus = needsHandoff && prevStatus !== "won" && prevStatus !== "lost"
+    ? "qualified"
+    : undefined;
+  const effectiveStage = needsHandoff ? "handoff" : (nextStage ?? undefined);
+
   await updateLead(lead.id, {
     qualification,
-    stage: needsHandoff ? "handoff" : undefined,
-    status: needsHandoff ? "qualified" : undefined,
+    stage: effectiveStage,
+    status: nextStatus,
     human_takeover: needsHandoff ? true : undefined,
+    score,
+    score_updated_at: new Date().toISOString(),
   });
+
+  // Timeline events (fire-and-forget). Só emitimos em mudanças reais pra
+  // não poluir a timeline com ruído de cada turno.
+  if (effectiveStage && effectiveStage !== prevStage) {
+    emitLeadEvent({
+      leadId: lead.id,
+      kind: "stage_change",
+      actor: "bia",
+      payload: { from: prevStage, to: effectiveStage },
+    });
+  }
+  if (nextStatus && nextStatus !== prevStatus) {
+    emitLeadEvent({
+      leadId: lead.id,
+      kind: "status_change",
+      actor: "bia",
+      payload: { from: prevStatus, to: nextStatus },
+    });
+  }
+  // Score jump: só marca pulos significativos (>= 10 pts) pra manter a
+  // timeline limpa. Flutuação de 1-5 pts entre turnos é esperada.
+  if (Math.abs(score - prevScore) >= 10) {
+    emitLeadEvent({
+      leadId: lead.id,
+      kind: "score_jump",
+      actor: "system",
+      payload: { from: prevScore, to: score, delta: score - prevScore },
+    });
+  }
+  if (needsHandoff) {
+    emitLeadEvent({
+      leadId: lead.id,
+      kind: "handoff_requested",
+      actor: "bia",
+      payload: {
+        reason: handoffReason ?? "lead_pediu_humano",
+        urgency: handoffUrgency ?? "media",
+      },
+    });
+  }
 
   // Memória persistente (Fatia I): refresh em background se passou do limite
   // de msgs desde o último update. Não bloqueia — Haiku pode levar 1-2s.

@@ -1,35 +1,16 @@
-import { notFound } from "next/navigation";
-import { supabaseAdmin } from "@/lib/supabase";
-import { ThreadClient, type Message, type Lead } from "./thread-client";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-async function loadLead(id: string) {
-  const sb = supabaseAdmin();
-  const [leadQ, msgsQ] = await Promise.all([
-    sb.from("leads").select("*").eq("id", id).maybeSingle(),
-    sb
-      .from("messages")
-      .select("id, direction, role, content, created_at, media_type, media_path, media_mime, media_duration_ms")
-      .eq("lead_id", id)
-      .order("created_at", { ascending: true })
-      .limit(200),
-  ]);
-  if (leadQ.error || !leadQ.data) return null;
-  return {
-    lead: leadQ.data as Lead,
-    messages: (msgsQ.data ?? []) as Message[],
-  };
-}
-
-export default async function LeadPage({
+/**
+ * Phase 1: threadview legacy substituída por /inbox/[id] (3-col com
+ * context rail, HUD, timeline). Redirect preserva o id.
+ */
+export default async function LegacyLeadPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await loadLead(id);
-  if (!data) return notFound();
-  return <ThreadClient lead={data.lead} initialMessages={data.messages} />;
+  redirect(`/inbox/${id}`);
 }

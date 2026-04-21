@@ -1,0 +1,212 @@
+/* Shell — sidebar + topbar. Copia seletiva de project/hifi-dark/components.css. */
+
+/* === App grid === */
+.bh .app {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  min-height: 100vh;
+}
+
+/* === Sidebar === */
+.bh .sidebar {
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 10;
+}
+.bh .sidebar .logo {
+  width: 52px; height: 52px; border-radius: 16px;
+  background: linear-gradient(160deg, #3b82f6 0%, #1d4ed8 60%, #0b2a55 100%);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 22px; letter-spacing: -0.03em;
+  box-shadow:
+    -4px -4px 10px rgba(79, 116, 176, 0.25),
+    6px 6px 18px rgba(0, 3, 10, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  margin-bottom: 14px;
+  position: relative;
+  text-decoration: none;
+}
+.bh .sidebar .logo::after {
+  content: ""; position: absolute; inset: 6px; border-radius: 11px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 60%);
+  pointer-events: none;
+}
+.bh .side-item {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3); cursor: pointer; position: relative;
+  background: var(--surface);
+  box-shadow: var(--sh-neu-sm);
+  border: 1px solid var(--hairline);
+  transition: all 120ms;
+  text-decoration: none;
+}
+.bh .side-item svg {
+  width: 20px; height: 20px;
+  stroke: currentColor; fill: none;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.bh .side-item:hover { color: var(--ink); }
+.bh .side-item.active {
+  color: var(--blue);
+  background: var(--surface-3);
+  box-shadow: var(--sh-in-sm);
+}
+.bh .side-item.active::after {
+  content: "";
+  position: absolute; left: -12px; top: 14px; bottom: 14px; width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #5eead4, #4aa3ff);
+  box-shadow: 0 0 12px rgba(74, 163, 255, 0.7);
+}
+.bh .side-item .badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #ff8a6a, #e85a3a);
+  color: #fff; font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 10px rgba(255, 122, 89, 0.45);
+}
+.bh .side-spacer { flex: 1; }
+
+/* === UserChip === */
+.bh .sidebar-footer {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bh .user-chip-wrap {
+  position: relative;
+}
+.bh .user-chip {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--sh-neu-sm);
+  transition: background 120ms ease, color 120ms ease;
+  letter-spacing: 0.02em;
+}
+.bh .user-chip:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.bh .user-menu {
+  position: absolute;
+  left: calc(100% + 10px);
+  bottom: 0;
+  min-width: 220px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  padding: 6px;
+  z-index: 30;
+}
+.bh .user-menu-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 4px;
+}
+.bh .user-menu-name {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.3;
+}
+.bh .user-menu-email {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+  word-break: break-all;
+}
+.bh .user-menu-role {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.bh .user-menu-item {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.bh .user-menu-item:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+/* === Top bar === */
+.bh .topbar {
+  height: 64px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 24px 14px 8px;
+  position: sticky; top: 0; z-index: 20;
+  background: linear-gradient(180deg,
+    rgba(14, 22, 36, 0.88),
+    rgba(14, 22, 36, 0.6) 70%,
+    transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.bh .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
+.bh .crumb strong { color: var(--ink); font-weight: 600; letter-spacing: -0.01em; }
+.bh .crumb .sep { color: var(--ink-5); }
+.bh .search {
+  display: flex; align-items: center; gap: 10px;
+  height: 40px; padding: 0 14px; border-radius: 12px;
+  background: var(--surface-3); box-shadow: var(--sh-in-sm);
+  color: var(--ink-3); font-size: 12.5px; min-width: 280px;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+}
+.bh .search .kbd { margin-left: auto; }
+
+/* === Page === */
+.bh .page { min-height: 100vh; display: flex; flex-direction: column; }
+.bh .page-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Banner "versão clássica" — temporário durante migração */
+.bh-legacy-banner {
+  background: linear-gradient(90deg, rgba(255, 200, 97, 0.14), rgba(255, 200, 97, 0.04));
+  border-bottom: 1px solid rgba(255, 200, 97, 0.28);
+  color: #ffe0a3;
+  padding: 8px 20px;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.005em;
+}
+.bh-legacy-banner strong { font-weight: 600; color: #fff; }
+.bh-legacy-banner a { color: #8fc0ff; text-decoration: none; margin-left: auto; font-weight: 500; }
+.bh-legacy-banner a:hover { text-decoration: underline; }

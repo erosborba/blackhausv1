@@ -9,6 +9,8 @@ import {
   compactNode,
   routeFromRouter,
 } from "./nodes";
+import type { RetrievedSource } from "./retrieval";
+import type { Intent, Stage } from "./state";
 import { checkpointer } from "@/lib/checkpointer";
 import { recentMessages, type Lead, type Qualification } from "@/lib/leads";
 
@@ -56,6 +58,10 @@ export async function runSDR(args: {
   qualification: Qualification;
   handoffReason: HandoffReason | null;
   handoffUrgency: HandoffUrgency | null;
+  score: number;
+  stage: Stage | null;
+  intent: Intent | null;
+  sources: RetrievedSource[];
 }> {
   const app = await getGraph();
   const threadId = `lead:${args.lead.id}`;
@@ -91,5 +97,9 @@ export async function runSDR(args: {
     qualification: final.qualification,
     handoffReason: final.handoffReason ?? null,
     handoffUrgency: final.handoffUrgency ?? null,
+    score: final.score ?? 0,
+    stage: final.stage ?? null,
+    intent: final.intent ?? null,
+    sources: final.retrievedSources ?? [],
   };
 }

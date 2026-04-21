@@ -11,6 +11,7 @@ import { anthropicUsage, langchainAnthropicUsage, logUsage } from "@/lib/ai-usag
 import { getRecentDraftEdits } from "@/lib/draft-learnings";
 import { getSettingNumber } from "@/lib/settings";
 import { checkFactualClaims } from "./factcheck";
+import { computeLeadScore } from "@/lib/lead-score";
 
 /**
  * Threshold de confiança do retrieval semântico.
@@ -278,6 +279,17 @@ Anexe um campo "extracted" no JSON com SOMENTE os campos detectados.`;
       : "media"
     : null;
 
+  // Score 0-100 calculado aqui — serve pro Priority Rail do inbox. Custo:
+  // puro CPU, ~0ms, explicável (ver `computeLeadScore`). Persistido em
+  // `leads.score` pelo webhook (runAgentTurn).
+  const { total: score } = computeLeadScore({
+    qualification: newQual,
+    stage: parsed.next_stage,
+    intent: parsed.intent,
+    messageCount: state.messages.length,
+    handoffUrgency,
+  });
+
   return {
     intent: parsed.intent,
     stage: parsed.next_stage,
@@ -289,6 +301,7 @@ Anexe um campo "extracted" no JSON com SOMENTE os campos detectados.`;
     needsHandoff: isHandoff,
     handoffReason,
     handoffUrgency,
+    score,
   };
 }
 
@@ -299,11 +312,13 @@ export async function retrieveNode(state: SDRStateType) {
 
   let context = "";
   let confidence: "strong" | "weak" | "none" = "none";
+  let sources: import("./retrieval").RetrievedSource[] = [];
 
   if (state.intent === "duvida_empreendimento" && userText) {
     const ragThreshold = await getSettingNumber("rag_strong_threshold", RAG_STRONG_THRESHOLD_DEFAULT);
     const r = await searchSemantic(userText, 5);
     context = r.text;
+    sources = r.items;
     if (!context) {
       confidence = "none";
     } else if (r.topScore === null) {
@@ -314,12 +329,14 @@ export async function retrieveNode(state: SDRStateType) {
       confidence = r.topScore >= ragThreshold ? "strong" : "weak";
     }
   } else if (state.intent === "qualificar" || state.intent === "agendar" || state.intent === "saudacao") {
-    context = await searchByQualification(state.qualification, 5);
+    const r = await searchByQualification(state.qualification, 5);
+    context = r.text;
+    sources = r.items;
     // Busca estruturada: se achou algo, é "strong" (casou critérios duros).
     confidence = context ? "strong" : "none";
   }
 
-  return { retrieved: context, retrievedConfidence: confidence };
+  return { retrieved: context, retrievedConfidence: confidence, retrievedSources: sources };
 }
 
 /** Gera a resposta final em texto natural de WhatsApp. */

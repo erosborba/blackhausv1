@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import type { HandoffReason, HandoffUrgency } from "./handoff-copy";
 
 export type Qualification = {
   tipo?: "apartamento" | "casa" | "cobertura" | "studio";
@@ -33,6 +34,10 @@ export type Lead = {
   memory?: string | null;
   memory_updated_at?: string | null;
   memory_msg_count?: number;
+  score?: number;
+  score_updated_at?: string | null;
+  handoff_reason?: HandoffReason | null;
+  handoff_urgency?: HandoffUrgency | null;
 };
 
 export async function upsertLead(phone: string, pushName?: string): Promise<Lead> {
@@ -66,6 +71,11 @@ export async function appendMessage(args: {
   mediaPath?: string | null;
   mediaMime?: string | null;
   mediaDurationMs?: number | null;
+  /**
+   * Retrieval provenance: empreendimentos que alimentaram a resposta.
+   * UI do /inbox mostra como pill abaixo do bubble outbound.
+   */
+  sources?: unknown[] | null;
 }) {
   const sb = supabaseAdmin();
   const { error } = await sb.from("messages").insert({
@@ -79,6 +89,7 @@ export async function appendMessage(args: {
     media_path: args.mediaPath ?? null,
     media_mime: args.mediaMime ?? null,
     media_duration_ms: args.mediaDurationMs ?? null,
+    sources: args.sources && args.sources.length > 0 ? args.sources : null,
   });
   if (error) {
     // 23505 = unique_violation no índice de evolution_message_id.
