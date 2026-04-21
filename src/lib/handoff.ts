@@ -12,6 +12,12 @@ import { cancelEscalation, recoverEscalations, scheduleEscalation } from "./hand
 import { brPhoneVariants } from "./phone";
 import { getSettingNumber } from "./settings";
 import { cancelFollowUpsForLead } from "./follow-ups";
+import {
+  HANDOFF_REASON_LABEL,
+  HANDOFF_URGENCY_EMOJI,
+  type HandoffReason,
+  type HandoffUrgency,
+} from "@/agent/state";
 
 /**
  * Orquestração do handoff WhatsApp (corretor ↔ Bia ↔ lead).
@@ -57,12 +63,17 @@ function formatHandoffNotification(args: {
   leadName: string;
   leadPhone: string;
   reason: string;
+  urgency: HandoffUrgency | null;
   brief: string | null;
   leadId: string;
   appBaseUrl: string;
 }): string {
   const briefBlock = args.brief ? `\n\n${args.brief}` : "";
-  return `🔔 Lead quente — Blackhaus
+  // Emoji no header destaca urgência pro corretor ler de relance.
+  // 🔴 alta, 🟡 média, 🟢 baixa. Sem urgency (ex.: escalação manual) → 🔔 genérico.
+  const urgencyBadge = args.urgency ? HANDOFF_URGENCY_EMOJI[args.urgency] : "🔔";
+  const urgencyLine = args.urgency ? ` · urgência ${args.urgency}` : "";
+  return `${urgencyBadge} Lead quente — Blackhaus${urgencyLine}
 
 ${args.leadName} · ${args.leadPhone}
 Motivo: ${args.reason}${briefBlock}
@@ -78,7 +89,15 @@ export async function recoverHandoffEscalations(): Promise<void> {
   await recoverEscalations(escalateHandoff);
 }
 
-export async function initiateHandoff(leadId: string, reason = "lead pediu humano") {
+export async function initiateHandoff(
+  leadId: string,
+  /**
+   * Motivo canônico do handoff — persiste em `leads.handoff_reason`.
+   * Default cobre chamadas legadas/manuais (ex.: botão "escalar" no admin).
+   */
+  reason: HandoffReason = "lead_pediu_humano",
+  urgency: HandoffUrgency = "media",
+) {
   const sb = supabaseAdmin();
   const { data: lead, error } = await sb
     .from("leads")
@@ -108,6 +127,7 @@ export async function initiateHandoff(leadId: string, reason = "lead pediu human
     leadPhone: lead.phone,
     brief: lead.brief ?? null,
     reason,
+    urgency,
     excludeIds: [agent.id],
     attempts: (lead.handoff_attempts ?? 0) + 1,
   });
@@ -147,7 +167,10 @@ export async function escalateHandoff(leadId: string) {
     leadName: lead.full_name || lead.push_name || lead.phone,
     leadPhone: lead.phone,
     brief: lead.brief ?? null,
-    reason: "escalado (corretor anterior não respondeu em 5min)",
+    reason: "escalacao",
+    // Escalação por timeout sempre entra como urgência alta — corretor
+    // anterior já deixou passar, esse lead tá esfriando rápido.
+    urgency: "alta",
     excludeIds: [...excludeIds, next.id],
     attempts: (lead.handoff_attempts ?? 0) + 1,
   });
@@ -159,7 +182,8 @@ async function notifyAgentAndSchedule(args: {
   leadName: string;
   leadPhone: string;
   brief: string | null;
-  reason: string;
+  reason: HandoffReason;
+  urgency: HandoffUrgency | null;
   excludeIds: string[];
   attempts: number;
 }) {
@@ -167,7 +191,8 @@ async function notifyAgentAndSchedule(args: {
   const text = formatHandoffNotification({
     leadName: args.leadName,
     leadPhone: args.leadPhone,
-    reason: args.reason,
+    reason: HANDOFF_REASON_LABEL[args.reason],
+    urgency: args.urgency,
     brief: args.brief,
     leadId: args.leadId,
     appBaseUrl,
@@ -192,6 +217,8 @@ async function notifyAgentAndSchedule(args: {
       assigned_agent_id: args.agent.id,
       handoff_notified_at: new Date().toISOString(),
       handoff_attempts: args.attempts,
+      handoff_reason: args.reason,
+      handoff_urgency: args.urgency,
       bridge_active: false,
       bridge_closed_at: null,
     } as Record<string, unknown>);

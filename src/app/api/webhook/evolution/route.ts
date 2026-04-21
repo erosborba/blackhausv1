@@ -297,7 +297,7 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
   const { lead, combinedText, sendTarget } = args;
   sendPresence(sendTarget, "composing").catch(() => {});
 
-  const { reply, needsHandoff, qualification } = await runSDR({
+  const { reply, needsHandoff, qualification, handoffReason, handoffUrgency } = await runSDR({
     lead,
     userText: combinedText,
   });
@@ -336,9 +336,13 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
       }
     }
     // Dispara notificação pro corretor da vez (fire-and-forget).
-    initiateHandoff(lead.id, "Bia detectou que precisa de humano").catch((e) =>
-      console.error("[webhook] initiateHandoff failed:", e),
-    );
+    // Se o grafo (router/factcheck) definiu reason/urgency, usamos; senão
+    // default pra "lead_pediu_humano" + "media" (handoff genérico).
+    initiateHandoff(
+      lead.id,
+      handoffReason ?? "lead_pediu_humano",
+      handoffUrgency ?? "media",
+    ).catch((e) => console.error("[webhook] initiateHandoff failed:", e));
   }
 }
 

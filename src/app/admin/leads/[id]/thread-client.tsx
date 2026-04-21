@@ -33,6 +33,27 @@ export type Lead = {
   created_at: string;
   memory?: string | null;
   memory_updated_at?: string | null;
+  handoff_reason?: string | null;
+  handoff_urgency?: string | null;
+  handoff_notified_at?: string | null;
+};
+
+// Copy canônica — duplicada de @/agent/state pra evitar arrastar import
+// server-only pro bundle client. Manter sincronizado.
+const HANDOFF_REASON_LABEL: Record<string, string> = {
+  lead_pediu_humano: "pediu humano",
+  fora_de_escopo: "fora de escopo",
+  objecao_complexa: "objeção complexa",
+  ia_incerta: "IA incerta",
+  urgencia_alta: "urgência alta",
+  escalacao: "escalação",
+  outro: "outro",
+};
+
+const URGENCY_STYLE: Record<string, { emoji: string; bg: string; border: string; fg: string }> = {
+  alta: { emoji: "🔴", bg: "#3a1818", border: "#8b2a2a", fg: "#ffb3b3" },
+  media: { emoji: "🟡", bg: "#3a2b1e", border: "#8b6a2a", fg: "#ffd59e" },
+  baixa: { emoji: "🟢", bg: "#1e3a2b", border: "#2a8b4a", fg: "#9ee8b8" },
 };
 
 const shell: CSSProperties = {
@@ -508,6 +529,44 @@ export function ThreadClient({
           <div style={sideLabel}>Qualificação</div>
           {renderQualification(currentLead.qualification)}
         </div>
+
+        {currentLead.handoff_reason && (() => {
+          const urgency = currentLead.handoff_urgency ?? "media";
+          const style = URGENCY_STYLE[urgency] ?? URGENCY_STYLE.media;
+          const label = HANDOFF_REASON_LABEL[currentLead.handoff_reason] ?? currentLead.handoff_reason;
+          return (
+            <div
+              style={{
+                ...card,
+                padding: 16,
+                background: style.bg,
+                borderColor: style.border,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 16 }}>{style.emoji}</span>
+                <strong style={{ fontSize: 13, color: style.fg }}>Handoff para corretor</strong>
+              </div>
+              <div style={{ fontSize: 13, color: "#e7e7ea", marginBottom: 4 }}>
+                Motivo: <strong>{label}</strong>
+              </div>
+              <div style={{ fontSize: 12, color: "#c5c5d0" }}>
+                Urgência: <strong>{urgency}</strong>
+              </div>
+              {currentLead.handoff_notified_at && (
+                <div style={{ fontSize: 11, color: "#8f8f9a", marginTop: 6 }}>
+                  corretor notificado{" "}
+                  {new Date(currentLead.handoff_notified_at).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {currentLead.memory && currentLead.memory.trim().length > 0 && (
           <div style={{ ...card, padding: 20 }}>

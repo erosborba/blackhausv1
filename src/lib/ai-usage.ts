@@ -34,7 +34,8 @@ export type AiTask =
   | "lead_memory"        // Haiku mantendo a memória persistente do lead
   | "followup_message"   // Haiku gerando mensagem de nurturing
   | "audio_transcribe"   // OpenAI Whisper transcrevendo áudio do lead
-  | "image_vision";      // Claude vision descrevendo imagem do lead
+  | "image_vision"       // Claude vision descrevendo imagem do lead
+  | "context_compact";   // Haiku resumindo turnos antigos no grafo SDR
 
 // ---------------------------------------------------------------------------
 // Pricing table (USD por 1M tokens)

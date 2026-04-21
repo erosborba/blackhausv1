@@ -1,7 +1,14 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
-import { SDRState, type SDRStateType } from "./state";
-import { routerNode, retrieveNode, answerNode, handoffNode, routeFromRouter } from "./nodes";
+import { SDRState, type SDRStateType, type HandoffReason, type HandoffUrgency } from "./state";
+import {
+  routerNode,
+  retrieveNode,
+  answerNode,
+  handoffNode,
+  compactNode,
+  routeFromRouter,
+} from "./nodes";
 import { checkpointer } from "@/lib/checkpointer";
 import { recentMessages, type Lead, type Qualification } from "@/lib/leads";
 
@@ -11,11 +18,17 @@ async function build() {
   const saver = await checkpointer();
 
   const graph = new StateGraph(SDRState)
+    .addNode("compact", compactNode)
     .addNode("router", routerNode)
     .addNode("retrieve", retrieveNode)
     .addNode("answer", answerNode)
     .addNode("handoff", handoffNode)
-    .addEdge(START, "router")
+    // compactNode é o primeiro passo: se messages > threshold, resume os
+    // turnos antigos em state.compactedHistory pra manter o prompt bounded.
+    // Acima do threshold o custo é ~1 chamada Haiku extra por turno, bem
+    // abaixo do que sai caro (bia_router + bia_answer com histórico infinito).
+    .addEdge(START, "compact")
+    .addEdge("compact", "router")
     .addConditionalEdges("router", routeFromRouter, {
       retrieve: "retrieve",
       answer: "answer",
@@ -37,7 +50,13 @@ export async function getGraph() {
 export async function runSDR(args: {
   lead: Lead;
   userText: string;
-}): Promise<{ reply: string; needsHandoff: boolean; qualification: Qualification }> {
+}): Promise<{
+  reply: string;
+  needsHandoff: boolean;
+  qualification: Qualification;
+  handoffReason: HandoffReason | null;
+  handoffUrgency: HandoffUrgency | null;
+}> {
   const app = await getGraph();
   const threadId = `lead:${args.lead.id}`;
 
@@ -70,5 +89,7 @@ export async function runSDR(args: {
     reply: final.reply,
     needsHandoff: final.needsHandoff,
     qualification: final.qualification,
+    handoffReason: final.handoffReason ?? null,
+    handoffUrgency: final.handoffUrgency ?? null,
   };
 }

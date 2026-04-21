@@ -17,7 +17,40 @@ export type InboxItem = {
   last_message_at: string | null;
   last_message_content: string | null;
   last_message_direction: "inbound" | "outbound" | null;
+  handoff_reason: string | null;
+  handoff_urgency: "baixa" | "media" | "alta" | null;
+  handoff_notified_at: string | null;
+  bridge_active: boolean | null;
 };
+
+// Copy canônica — duplicada de @/agent/state pra não arrastar import
+// client/server (`state.ts` tem dependências de lib). Manter sincronizado.
+const HANDOFF_REASON_LABEL: Record<string, string> = {
+  lead_pediu_humano: "pediu humano",
+  fora_de_escopo: "fora de escopo",
+  objecao_complexa: "objeção complexa",
+  ia_incerta: "IA incerta",
+  urgencia_alta: "urgência alta",
+  escalacao: "escalação",
+  outro: "outro",
+};
+
+const URGENCY_EMOJI: Record<string, string> = {
+  alta: "🔴",
+  media: "🟡",
+  baixa: "🟢",
+};
+
+function handoffBadge(
+  reason: string | null,
+  urgency: string | null,
+): { emoji: string; label: string } | null {
+  if (!reason) return null;
+  return {
+    emoji: urgency ? URGENCY_EMOJI[urgency] ?? "🔔" : "🔔",
+    label: HANDOFF_REASON_LABEL[reason] ?? reason,
+  };
+}
 
 const container: CSSProperties = {
   maxWidth: 900,
@@ -206,6 +239,14 @@ export function InboxClient({ initial }: { initial: InboxItem[] }) {
                     {lead.human_takeover && (
                       <span style={chip("#3a2b1e", "#d9a66b")}>pausada</span>
                     )}
+                    {(() => {
+                      const hb = handoffBadge(lead.handoff_reason, lead.handoff_urgency);
+                      return hb ? (
+                        <span style={chip("#2a2a32", "#c5c5d0")}>
+                          {hb.emoji} {hb.label}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                   <div
                     style={{

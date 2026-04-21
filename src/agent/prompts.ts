@@ -41,6 +41,8 @@ Retorne APENAS um JSON válido com o formato:
   "intent": "saudacao" | "duvida_empreendimento" | "qualificar" | "agendar" | "fora_de_escopo" | "handoff_humano",
   "next_stage": "greet" | "discover" | "qualify" | "recommend" | "schedule" | "handoff",
   "missing_fields": string[],
+  "handoff_reason": "lead_pediu_humano" | "fora_de_escopo" | "objecao_complexa" | "urgencia_alta" | null,
+  "handoff_urgency": "baixa" | "media" | "alta" | null,
   "rationale": string
 }
 
@@ -53,6 +55,17 @@ Critérios:
 - "saudacao" só na primeira interação ou cumprimento.
 
 missing_fields: lista de campos da qualificação que ainda faltam preencher.
+
+handoff_reason (APENAS quando intent = "handoff_humano"; null caso contrário):
+- "lead_pediu_humano": "quero falar com alguém", "passa pra vendedor", "chama um humano".
+- "fora_de_escopo": pede locação, imóvel usado, cidade que não atendemos, assunto não-imobiliário.
+- "objecao_complexa": objeção forte sobre preço/prazo/condições que requer negociação humana.
+- "urgencia_alta": lead expressa pressa real ("preciso fechar até sexta", "vou visitar hoje"), irritação séria, ou decisão iminente.
+
+handoff_urgency (APENAS quando intent = "handoff_humano"; null caso contrário):
+- "alta": urgência explícita, lead pronto pra fechar, irritado, ou janela curta.
+- "media": interesse quente, lead qualified querendo conversar, objeção negociável.
+- "baixa": dúvida pontual, fora de escopo leve, lead só pedindo pra falar com alguém sem pressa.
 `;
 
 export function recommendSystem(empreendimentosContext: string) {
