@@ -83,5 +83,14 @@ language sql stable as $$
     );
 $$;
 
--- Realtime: UI /ajustes/agenda reflete edições ao vivo.
-alter publication supabase_realtime add table public.agent_availability;
+-- Realtime: UI /ajustes/agenda reflete edições ao vivo. `alter publication`
+-- não tem `if not exists`, então conditional via pg_publication_tables.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'agent_availability'
+  ) then
+    alter publication supabase_realtime add table public.agent_availability;
+  end if;
+end $$;
