@@ -44,3 +44,9 @@ export {
   type CheckMcmvInput,
   type CheckMcmvOutput,
 } from "./check-mcmv";
+
+export {
+  simulateFinancing,
+  type SimulateFinancingInput,
+  type SimulateFinancingOutput,
+} from "./simulate-financing";

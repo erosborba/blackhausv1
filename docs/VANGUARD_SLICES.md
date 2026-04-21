@@ -342,13 +342,25 @@ e de maior valor comercial), e deixamos `cities_fiscal` pro fim
   o prompt update; schema de `qualification` ainda não tem
   `renda`/`primeiro_imovel`
 
-### [ ] 3.3 · Tool `simulate_financing`
-- Input: preco_imovel (obrigatório), entrada, prazo_meses, sistema
-- Output estruturado: parcela inicial, parcela final, juros totais, CET
-- **Guardrail**: se `flags.requireExplicitPrice=true` (default) e
-  preco_imovel não veio do lead ou de `preco_inicial` do empreendimento
-  → tool retorna `{ ok:false, needs_price:true }` e Bia pergunta
-- DoD: tool no registry, eval case, guardrail respeitado
+### [x] 3.3 · Tool `simulate_financing` — 2026-04-24
+- `src/agent/tools/simulate-financing.ts` — wrapper com config
+- `src/lib/simulation-response.ts` — função pura
+  `computeSimulationResponse` (SBPE ou SAC, defaults inteligentes,
+  formatação pt-BR)
+- **Guardrail implementado**: se `flags.requireExplicitPrice=true`
+  (default) e `price_source` não é `'lead'` nem `'empreendimento'`,
+  retorna `{ok:false, reason:'needs_price'}` com texto pedindo o
+  valor ao lead. Admin pode afrouxar via `/ajustes`.
+- Texto cola "a partir de" automaticamente quando
+  `price_source='empreendimento'` — lead entende que é faixa, não
+  preço da unidade
+- SBPE mostra parcela constante + convite pra SAC; SAC mostra
+  "começa em X, termina em Y" + convite pra SBPE. Ambos alertam
+  sobre custos extras (condomínio/IPTU/taxas do banco)
+- Validação: preço/prazo/entrada inválidos, entrada ≥ preço → reasons
+  específicos com texto pedagógico
+- 24 unit tests em `simulate-financing.test.ts` (98/98 total verde)
+- **Eval case deferido pro 3.5**: depende de prompt/tool_use
 
 ### [ ] 3.2 · Tabela cidades + ITBI (refinamento)
 - `cities_fiscal` (cidade text, uf text, itbi_rate numeric, reg_cartorio numeric)
