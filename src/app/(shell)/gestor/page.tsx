@@ -56,6 +56,15 @@ export default async function GestorPage(props: {
               </p>
             </div>
             <div className="window-switch">
+              <Link href={`/gestor/funnel?days=${days}`} className="switch-btn">
+                Funil →
+              </Link>
+              <Link href={`/gestor/rag-gaps?days=${days}`} className="switch-btn">
+                RAG gaps →
+              </Link>
+              <Link href="/gestor/health" className="switch-btn">
+                Health →
+              </Link>
               {[7, 30, 90].map((d) => (
                 <Link
                   key={d}

@@ -15,7 +15,10 @@
     "tunnel": "ngrok http --url=repackage-iron-shanty.ngrok-free.dev 3000",
     "webhook:dev": "node scripts/set-webhook.mjs dev",
     "webhook:prod": "node scripts/set-webhook.mjs prod",
-    "webhook:status": "node scripts/set-webhook.mjs status"
+    "webhook:status": "node scripts/set-webhook.mjs status",
+    "eval": "node scripts/eval-run.mjs",
+    "eval:seed": "node scripts/eval-seed.mjs",
+    "eval:emps": "node scripts/eval-list-emps.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

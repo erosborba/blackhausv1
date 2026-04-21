@@ -61,13 +61,11 @@ Quando adicionar novo débito, inclua file:linha pra ficar rastreável.
   ou (b) migrar pra `RemoveMessage` quando compactação rodar, ou (c) parar de
   re-hidratar e confiar 100% no checkpointer — vale benchmark antes.
 
-- [ ] **Funnel approximation.** `/admin/funnel` agrega em memória, cap 2000
-  leads + 20k mensagens por janela. Conversão sequencial assume que um lead
-  "lost" nunca foi "qualified" (não temos event sourcing).
-  Arquivo: `src/app/admin/funnel/page.tsx:20,114,500`.
-  **Solução 1 (tática)**: RPC materializada refresh diário. **Solução 2
-  (estratégica)**: tabela `lead_events` com INSERT em cada transição de status
-  — habilita funil exato e coortes.
+- [x] ~~**Funnel approximation.**~~ Resolvido em 2026-04-21 pelo Slice 1.4 do
+  VANGUARD. RPC `pipeline_conversion_funnel(since_days)` (migration
+  `20260421000004`) agrega direto de `lead_events.stage_change` — fonte da
+  verdade, exclui test phones. Página nova: `/gestor/funnel`. O antigo
+  `/admin/funnel` pode ser removido em limpeza futura.
 
 - [ ] **Sem observabilidade além do `ai_usage_log`.** Custo Claude/OpenAI é
   rastreado; erros de runtime viram `console.error` e morrem no stdout do

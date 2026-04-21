@@ -1,0 +1,296 @@
+{
+  "version": 1,
+  "description": "Seed eval set — Track 1 · Slice 1.2. 20 casos cobrindo 4 pilares: handoff decision (5), qualification extraction (5), grounding/RAG (5), tone/closing (5). Veja docs/VANGUARD_SLICES.md#1.2.",
+  "notes": [
+    "Casos de grounding (tag 'grounding') dependem de `mustMentionEmpreendimentoId` — substitua os placeholders `REPLACE_WITH_REAL_EMP_ID` por UUIDs reais do seu banco antes de rodar, ou rode com --tag=!grounding.",
+    "Casos foram escritos pra baseline atual. Se o DoD de 16/20 não bater na primeira execução, documente quais 4 falham em VANGUARD.md > Lições > Track 1."
+  ],
+  "conversations": [
+    {
+      "title": "handoff · lead pede humano explicitamente",
+      "tags": ["handoff", "lead_pediu_humano"],
+      "initial_lead": { "push_name": "Ana", "stage": "discover" },
+      "lead_messages": [
+        { "content": "oi, quero falar com um corretor de verdade por favor" }
+      ],
+      "expected": {
+        "needsHandoff": true,
+        "handoffReason": "lead_pediu_humano"
+      }
+    },
+    {
+      "title": "handoff · objeção comercial complexa (preço)",
+      "tags": ["handoff", "objecao_complexa"],
+      "initial_lead": {
+        "push_name": "Carlos",
+        "stage": "recommend",
+        "qualification": {
+          "quartos": 2,
+          "faixa_preco_max": 500000,
+          "bairros": ["Moema"]
+        }
+      },
+      "lead_messages": [
+        { "content": "olha, achei tudo muito caro. vocês conseguem descontar 15% ou melhorar a entrada? preciso de uma condição diferente pra fechar" }
+      ],
+      "expected": {
+        "needsHandoff": true,
+        "handoffReason": "objecao_complexa"
+      }
+    },
+    {
+      "title": "handoff · cliente quente urgência alta",
+      "tags": ["handoff", "urgencia_alta"],
+      "initial_lead": {
+        "push_name": "Juliana",
+        "stage": "schedule",
+        "qualification": {
+          "quartos": 3,
+          "faixa_preco_max": 1200000,
+          "bairros": ["Vila Mariana"],
+          "prazo": "imediato"
+        },
+        "score": 75
+      },
+      "lead_messages": [
+        { "content": "já decidi! quero fechar essa semana, tô com o dinheiro aprovado. consegue me passar pra alguém agora?" }
+      ],
+      "expected": {
+        "needsHandoff": true,
+        "handoffUrgency": "alta"
+      }
+    },
+    {
+      "title": "handoff NEG · curiosidade local (não escala)",
+      "tags": ["handoff", "negativo"],
+      "initial_lead": { "push_name": "Pedro", "stage": "discover" },
+      "lead_messages": [
+        { "content": "o AYA Carlos de Carvalho fica perto do centro mesmo?" }
+      ],
+      "expected": {
+        "needsHandoff": false
+      },
+      "notes": "Antes referenciava 'Vila Mariana' (bairro de SP que não existe no inventário real, só Curitiba). A Bia corretamente escalava como pedido sem match; após ancorar em AYA Carlos de Carvalho (em Centro/Curitiba, no inventário), ela responde sem escalar."
+    },
+    {
+      "title": "handoff NEG · saudação simples (não escala)",
+      "tags": ["handoff", "negativo"],
+      "initial_lead": { "push_name": null, "stage": null },
+      "lead_messages": [
+        { "content": "oi, bom dia" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "stage": "greet"
+      }
+    },
+    {
+      "title": "qualification · quartos",
+      "tags": ["qualification"],
+      "initial_lead": { "push_name": "Marina", "stage": "discover" },
+      "lead_messages": [
+        { "content": "oi! tô procurando um apê de 3 quartos" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "qualificationKeys": ["quartos"]
+      }
+    },
+    {
+      "title": "qualification · faixa de preço",
+      "tags": ["qualification"],
+      "initial_lead": { "push_name": "Rafael", "stage": "discover" },
+      "lead_messages": [
+        { "content": "orçamento meu é até 800 mil, no máximo 900" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "qualificationKeys": ["faixa_preco_max"]
+      }
+    },
+    {
+      "title": "qualification · bairros (múltiplos)",
+      "tags": ["qualification"],
+      "initial_lead": { "push_name": "Beatriz", "stage": "discover" },
+      "lead_messages": [
+        { "content": "queria na zona sul, pode ser Vila Mariana, Moema ou Ipiranga" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "qualificationKeys": ["bairros"]
+      }
+    },
+    {
+      "title": "qualification · finalidade",
+      "tags": ["qualification"],
+      "initial_lead": { "push_name": "Lucas", "stage": "discover" },
+      "lead_messages": [
+        { "content": "é pra morar com a família, não é investimento não" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "qualificationKeys": ["finalidade"]
+      }
+    },
+    {
+      "title": "qualification · prazo + pagamento",
+      "tags": ["qualification"],
+      "initial_lead": { "push_name": "Camila", "stage": "discover" },
+      "lead_messages": [
+        { "content": "quero comprar em uns 6 meses, via financiamento da Caixa usando FGTS" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "qualificationKeys": ["prazo", "pagamento"]
+      }
+    },
+    {
+      "title": "grounding · pergunta sobre AYA Carlos de Carvalho (Centro/Curitiba)",
+      "tags": ["grounding"],
+      "initial_lead": { "push_name": "Felipe", "stage": "recommend" },
+      "lead_messages": [
+        { "content": "me fala mais sobre o AYA Carlos de Carvalho" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "mustMentionEmpreendimentoId": "c0d8c2a3-3b25-4da0-aa84-2b857fe4d37e"
+      }
+    },
+    {
+      "title": "grounding · Château de Vermont (Lindóia) por nome",
+      "tags": ["grounding"],
+      "initial_lead": { "push_name": "Thiago", "stage": "recommend" },
+      "lead_messages": [
+        { "content": "vocês têm o Château de Vermont? queria saber mais" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "mustMentionEmpreendimentoId": "b2fb5085-72f1-4e68-a822-3dd712604521"
+      }
+    },
+    {
+      "title": "grounding · bairro Centro Curitiba → AYA",
+      "tags": ["grounding"],
+      "initial_lead": {
+        "push_name": "Natália",
+        "stage": "recommend",
+        "qualification": { "bairros": ["Centro"], "quartos": 2 }
+      },
+      "lead_messages": [
+        { "content": "o que vocês têm no Centro de Curitiba?" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "mustMentionEmpreendimentoId": "c0d8c2a3-3b25-4da0-aa84-2b857fe4d37e"
+      }
+    },
+    {
+      "title": "grounding · bairro Lindóia → Château",
+      "tags": ["grounding"],
+      "initial_lead": {
+        "push_name": "Rodrigo",
+        "stage": "recommend",
+        "qualification": { "bairros": ["Lindóia"] }
+      },
+      "lead_messages": [
+        { "content": "tem algo em Lindóia, Curitiba?" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "mustMentionEmpreendimentoId": "b2fb5085-72f1-4e68-a822-3dd712604521"
+      }
+    },
+    {
+      "title": "grounding · pergunta aberta em obras → AYA",
+      "tags": ["grounding"],
+      "initial_lead": {
+        "push_name": "Patricia",
+        "stage": "recommend",
+        "qualification": { "bairros": ["Centro"] }
+      },
+      "lead_messages": [
+        { "content": "quais empreendimentos em obras vocês têm em Curitiba?" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "mustMentionEmpreendimentoId": "c0d8c2a3-3b25-4da0-aa84-2b857fe4d37e"
+      }
+    },
+    {
+      "title": "tone · lead quer agendar → Bia propõe horário",
+      "tags": ["tone", "schedule"],
+      "initial_lead": {
+        "push_name": "Fernanda",
+        "stage": "recommend",
+        "qualification": { "quartos": 3, "bairros": ["Moema"] },
+        "score": 65
+      },
+      "lead_messages": [
+        { "content": "topo visitar. quando vocês podem me atender aí?" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "stage": "schedule"
+      },
+      "notes": "Antes pedia replyMustContain='visit' (inglês) e falhou contra reply em pt-BR. Mantém só needsHandoff+stage; Track 2 (Agendamento real) endurece com propose_visit_slots."
+    },
+    {
+      "title": "tone · lead aceita proposta → Bia confirma próximos passos",
+      "tags": ["tone", "closing"],
+      "initial_lead": {
+        "push_name": "Gabriel",
+        "stage": "schedule",
+        "qualification": { "quartos": 2, "pagamento": "financiamento" }
+      },
+      "lead_messages": [
+        { "content": "perfeito, pode ser sábado às 10h" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "replyMustContain": "sábado"
+      }
+    },
+    {
+      "title": "tone · lead indeciso → Bia pergunta critério decisivo",
+      "tags": ["tone", "discovery", "flaky"],
+      "initial_lead": {
+        "push_name": "Isabela",
+        "stage": "recommend",
+        "qualification": { "bairros": ["Centro", "Lindóia"] }
+      },
+      "lead_messages": [
+        { "content": "não sei qual escolher, os dois são parecidos" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "replyMustNotContain": "legal!"
+      },
+      "notes": "FLAKY conhecido — em ~25% das rodadas a Bia escala como objeção complexa em vez de perguntar critério decisivo. Ancorei em bairros reais (Centro, Lindóia) em vez de SP pra reduzir ruído. Track 3 (determinismo) endurece com structured decision antes de escalar indecisão."
+    },
+    {
+      "title": "tone · primeiro contato → Bia faz pergunta aberta",
+      "tags": ["tone", "greeting"],
+      "initial_lead": { "push_name": "Vinicius", "stage": null },
+      "lead_messages": [
+        { "content": "oi, tudo bem? vi o anúncio de vocês no instagram" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "replyMustNotContain": "escolha uma opção"
+      },
+      "notes": "Antes exigia stage='discover' no 1º turno, mas a Bia corretamente fica em 'greet' na saudação inicial (só avança pra discover quando aparece sinal de intent). Removi o stage check pra não punir comportamento certo."
+    },
+    {
+      "title": "tone · lead desiste → Bia encerra educadamente",
+      "tags": ["tone", "goodbye"],
+      "initial_lead": { "push_name": "Débora", "stage": "qualify" },
+      "lead_messages": [
+        { "content": "vou pensar melhor, obrigada" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "replyMustNotContain": "por favor não desista"
+      }
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+name: eval
+
+# Guard-rail G-1 (VANGUARD.md): roda o eval set em qualquer PR que toque
+# comportamento da Bia. Falha se pass rate cair > 10% vs evals/baseline.json.
+#
+# Secrets necessários:
+#   SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
+#   BH_EVAL_TOKEN            (pra autenticar o CLI no /api/eval/run)
+#   ANTHROPIC_API_KEY
+#   OPENAI_API_KEY           (retrieval usa embeddings OpenAI)
+#
+# Se você ainda não tem CI configurado: esse arquivo fica dormente até
+# os secrets serem setados no repo. Pra rodar local: `npm run eval`.
+
+on:
+  pull_request:
+    paths:
+      - "src/agent/**"
+      - "src/lib/lead-memory.ts"
+      - "src/lib/copilot.ts"
+      - "src/lib/brief.ts"
+      - "src/lib/eval.ts"
+      - "src/app/api/eval/**"
+      - "scripts/eval-*.mjs"
+      - "evals/**"
+      - "package.json"
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BH_EVAL_TOKEN: ${{ secrets.BH_EVAL_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      APP_BASE_URL: http://localhost:3000
+      BH_ALLOW_ROLE_STUB: "1"
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Start server
+        run: |
+          nohup npm start > server.log 2>&1 &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:3000/api/health >/dev/null 2>&1 || \
+               curl -fs http://localhost:3000/ >/dev/null 2>&1; then
+              echo "server up"; break
+            fi
+            sleep 2
+          done
+
+      - name: Seed eval set
+        run: npm run eval:seed
+
+      - name: Run eval with CI gate
+        run: node scripts/eval-run.mjs --gate=ci
+
+      - name: Server logs (on failure)
+        if: failure()
+        run: cat server.log || true

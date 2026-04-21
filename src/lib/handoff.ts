@@ -101,7 +101,7 @@ export async function initiateHandoff(
   const sb = supabaseAdmin();
   const { data: lead, error } = await sb
     .from("leads")
-    .select("id, phone, push_name, full_name, brief, handoff_attempts")
+    .select("id, phone, push_name, full_name, brief, handoff_attempts, assigned_agent_id")
     .eq("id", leadId)
     .maybeSingle();
   if (error || !lead) {
@@ -109,7 +109,29 @@ export async function initiateHandoff(
     return;
   }
 
-  const agent = await nextInRotation();
+  // Continuidade: se o lead já teve corretor atribuído num ciclo anterior
+  // (handoff resolvido → Bia retomou → lead re-esquentou), tenta mandar
+  // pro mesmo corretor primeiro. Se ele não abrir ponte em 5min, o
+  // `escalateHandoff` já cai na rotação normal excluindo ele. Se o
+  // corretor anterior estiver inativo (saiu da empresa, etc.), pula
+  // direto pra rotação.
+  let agent: Agent | null = null;
+  if (lead.assigned_agent_id) {
+    const prev = await getAgentById(lead.assigned_agent_id);
+    if (prev?.active) {
+      agent = prev;
+      console.log("[handoff] initiate: continuidade com corretor anterior", {
+        leadId,
+        agentId: prev.id,
+      });
+    } else if (prev && !prev.active) {
+      console.log("[handoff] initiate: corretor anterior inativo, indo pra rotação", {
+        leadId,
+        prevAgentId: prev.id,
+      });
+    }
+  }
+  if (!agent) agent = await nextInRotation();
   if (!agent) {
     console.warn("[handoff] initiate: nenhum corretor ativo");
     return;
@@ -216,6 +238,8 @@ async function notifyAgentAndSchedule(args: {
     await updateLead(args.leadId, {
       assigned_agent_id: args.agent.id,
       handoff_notified_at: new Date().toISOString(),
+      // Novo fire — limpa qualquer review anterior pra reaparecer em "pendente".
+      handoff_resolved_at: null,
       handoff_attempts: args.attempts,
       handoff_reason: args.reason,
       handoff_urgency: args.urgency,
@@ -260,9 +284,14 @@ export async function closeBridge(leadId: string) {
   if (data?.assigned_agent_id) {
     await clearCurrentLead(data.assigned_agent_id);
   }
+  // Devolve atendimento pra Bia. Lead é da empresa — não pode ficar
+  // trancado em corretor que deu /fim (que pode ter saído da empresa
+  // depois). Se re-esquentar, Bia re-escala (preferindo o mesmo agent
+  // via continuidade, mas caindo pra rotação se ele não responder em 5min).
   await updateLead(leadId, {
     bridge_active: false,
     bridge_closed_at: new Date().toISOString(),
+    human_takeover: false,
   } as Record<string, unknown>);
 }
 

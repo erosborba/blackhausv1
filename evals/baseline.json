@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "description": "Baseline do eval set — último run verde. Gerado por --update-baseline.",
+  "updated_at": "2026-04-21T20:13:06.547Z",
+  "commit": "44bb334244d5fb473e9c6d48694a51eb02c3b358",
+  "total": 20,
+  "passed": 18,
+  "failed": 2,
+  "errored": 0,
+  "case_results": {
+    "1934771f-9275-4ef5-9706-9046453c6cad": {
+      "title": "handoff · lead pede humano explicitamente",
+      "pass": true,
+      "tags": [
+        "handoff",
+        "lead_pediu_humano"
+      ]
+    },
+    "7a136606-a19f-4a23-9d99-7105e3e4db7a": {
+      "title": "handoff · objeção comercial complexa (preço)",
+      "pass": true,
+      "tags": [
+        "handoff",
+        "objecao_complexa"
+      ]
+    },
+    "e7d14bb1-5a84-4a81-a724-f4ffb242054d": {
+      "title": "handoff · cliente quente urgência alta",
+      "pass": true,
+      "tags": [
+        "handoff",
+        "urgencia_alta"
+      ]
+    },
+    "d4f77a16-f695-4651-b523-c8cda1d3ffb0": {
+      "title": "handoff NEG · curiosidade local (não escala)",
+      "pass": true,
+      "tags": [
+        "handoff",
+        "negativo"
+      ]
+    },
+    "168dc63c-2566-4f71-9889-c3b1b8b2ec2d": {
+      "title": "handoff NEG · saudação simples (não escala)",
+      "pass": true,
+      "tags": [
+        "handoff",
+        "negativo"
+      ]
+    },
+    "1c49f6ce-ddbf-4981-a3c3-f43da89ba82b": {
+      "title": "qualification · quartos",
+      "pass": true,
+      "tags": [
+        "qualification"
+      ]
+    },
+    "163aff42-b8db-487b-a69f-32e5affcc37f": {
+      "title": "qualification · faixa de preço",
+      "pass": true,
+      "tags": [
+        "qualification"
+      ]
+    },
+    "0cc78a31-4be5-4e41-a041-09de55a16200": {
+      "title": "qualification · bairros (múltiplos)",
+      "pass": true,
+      "tags": [
+        "qualification"
+      ]
+    },
+    "bd4bef74-e4f6-4ce7-99b3-822790ebd905": {
+      "title": "qualification · finalidade",
+      "pass": true,
+      "tags": [
+        "qualification"
+      ]
+    },
+    "614516b1-b427-44ab-b108-a04629221233": {
+      "title": "qualification · prazo + pagamento",
+      "pass": true,
+      "tags": [
+        "qualification"
+      ]
+    },
+    "f380f8cb-e554-4192-924c-8b747b748a74": {
+      "title": "grounding · pergunta sobre AYA Carlos de Carvalho (Centro/Curitiba)",
+      "pass": true,
+      "tags": [
+        "grounding"
+      ]
+    },
+    "d1d40ca8-55c7-44b9-91ba-ed571f99e3f9": {
+      "title": "grounding · Château de Vermont (Lindóia) por nome",
+      "pass": true,
+      "tags": [
+        "grounding"
+      ]
+    },
+    "a8b0afaf-79ce-4975-b69e-1277e08fdd18": {
+      "title": "grounding · bairro Centro Curitiba → AYA",
+      "pass": true,
+      "tags": [
+        "grounding"
+      ]
+    },
+    "78ba1375-fd6a-47c4-a436-9daa7f7553af": {
+      "title": "grounding · bairro Lindóia → Château",
+      "pass": true,
+      "tags": [
+        "grounding"
+      ]
+    },
+    "3f8a3d33-8798-4754-82f1-c298994a6212": {
+      "title": "grounding · pergunta aberta em obras → AYA",
+      "pass": true,
+      "tags": [
+        "grounding"
+      ]
+    },
+    "0b0be909-f0c8-4989-8607-cd620f6ed003": {
+      "title": "tone · lead quer agendar → Bia propõe horário",
+      "pass": true,
+      "tags": [
+        "tone",
+        "schedule"
+      ]
+    },
+    "fd9b6970-d960-42a2-ade5-d22acb1f3af8": {
+      "title": "tone · lead aceita proposta → Bia confirma próximos passos",
+      "pass": false,
+      "tags": [
+        "tone",
+        "closing"
+      ]
+    },
+    "4db094e5-e4c2-4b1a-87d8-1f7a57698f47": {
+      "title": "tone · lead indeciso → Bia pergunta critério decisivo",
+      "pass": false,
+      "tags": [
+        "tone",
+        "discovery",
+        "flaky"
+      ]
+    },
+    "f590f0fc-e29f-4d29-9290-20f6e24f6815": {
+      "title": "tone · primeiro contato → Bia faz pergunta aberta",
+      "pass": true,
+      "tags": [
+        "tone",
+        "greeting"
+      ]
+    },
+    "d9473e41-35d9-41a8-a051-e01e1729fa97": {
+      "title": "tone · lead desiste → Bia encerra educadamente",
+      "pass": true,
+      "tags": [
+        "tone",
+        "goodbye"
+      ]
+    }
+  }
+}

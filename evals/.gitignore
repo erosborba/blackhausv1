@@ -1,0 +1,3 @@
+# history.jsonl cresce a cada run — não commitar (é telemetria local
+# pro dashboard /gestor/health). Baseline sim, seed sim, history não.
+history.jsonl

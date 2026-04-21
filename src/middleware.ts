@@ -41,6 +41,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/webhook/")) return true;
   if (pathname.startsWith("/api/cron/")) return true;
   if (pathname.startsWith("/api/handoff/")) return true;
+  // Eval harness autentica via BH_EVAL_TOKEN (query/header). Mesmo padrão
+  // dos webhooks: middleware fica fora, route handler valida.
+  if (pathname.startsWith("/api/eval/")) return true;
   // Rota pública de handoff (corretor clica link do WhatsApp sem login).
   if (pathname.startsWith("/handoff/")) return true;
   return false;

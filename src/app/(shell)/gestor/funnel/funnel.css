@@ -1,0 +1,133 @@
+/* /gestor/funnel — conversion funnel */
+
+.funnel-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.funnel-kpi {
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.funnel-kpi-label {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.funnel-kpi-value {
+  font-size: 28px;
+  font-weight: 600;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
+.funnel-kpi-hint {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.funnel-section {
+  margin-top: 24px;
+}
+
+.funnel-section h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+  color: var(--ink-2);
+}
+
+.funnel-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.funnel-row {
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.funnel-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.funnel-row-head .mono {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.funnel-bar {
+  height: 10px;
+  background: var(--surface-2);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.funnel-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--ok));
+  transition: width 200ms ease-out;
+}
+
+.funnel-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.funnel-row-meta strong {
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.funnel-row-meta strong.warm {
+  color: var(--warm);
+}
+
+.funnel-row-meta strong.hot {
+  color: var(--hot);
+}
+
+.funnel-error,
+.funnel-empty {
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: 10px;
+  padding: 20px;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.funnel-error {
+  border-color: var(--hot);
+}
+
+.funnel-error code {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+
+.funnel-error-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-3);
+}

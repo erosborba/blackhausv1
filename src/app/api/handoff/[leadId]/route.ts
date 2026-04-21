@@ -119,6 +119,33 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     );
   }
 
+  // 1b. Marca handoff como revisado + devolve atendimento pra Bia.
+  //
+  // Princípio: lead é da empresa, não do corretor. Se ele voltar a falar,
+  // Bia atende (com memória do que rolou). Se re-esquentar, Bia re-escala
+  // preferencialmente pro mesmo corretor (ver initiateHandoff), e se esse
+  // corretor não abrir ponte em 5min, cai na rotação normal.
+  //
+  // Preserva `handoff_notified_at` pra analytics históricas. Mantém
+  // `assigned_agent_id` pra continuidade — mas `human_takeover=false`
+  // desbloqueia o atendimento da Bia.
+  try {
+    const sb = supabaseAdmin();
+    await sb
+      .from("leads")
+      .update({
+        handoff_resolved_at: new Date().toISOString(),
+        human_takeover: false,
+      })
+      .eq("id", leadId);
+  } catch (e) {
+    console.error(
+      "[handoff] set resolved_at failed",
+      e instanceof Error ? e.message : e,
+    );
+    // Não bloqueia — o feedback já foi gravado.
+  }
+
   // 2. Promove Q&A pro FAQ (opcional).
   let faqIndexed: number | null = null;
   let faqError: string | null = null;

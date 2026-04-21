@@ -1,0 +1,96 @@
+/* /gestor/rag-gaps — RAG gap report */
+
+.gaps-meta {
+  color: var(--ink-3);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.gaps-table-wrap {
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gaps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.gaps-table th,
+.gaps-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--line-1);
+}
+
+.gaps-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.gaps-table th {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gaps-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.gaps-emp strong {
+  display: block;
+  font-weight: 600;
+}
+
+.gaps-emp .slug {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+}
+
+.gap-score {
+  font-weight: 600;
+}
+
+.gap-score.tone-hot {
+  color: var(--hot);
+}
+
+.gap-score.tone-warm {
+  color: var(--warm);
+}
+
+.gap-score.tone-cool {
+  color: var(--ink-3);
+}
+
+.gaps-leadlink {
+  color: var(--blue);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.gaps-leadlink:hover {
+  text-decoration: underline;
+}
+
+.gaps-error,
+.gaps-empty {
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: 10px;
+  padding: 20px;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.gaps-error {
+  border-color: var(--hot);
+}
