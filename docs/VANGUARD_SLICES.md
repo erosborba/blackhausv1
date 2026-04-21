@@ -385,16 +385,78 @@ e de maior valor comercial), e deixamos `cities_fiscal` pro fim
   (mostrar ITBI embutido ou em mensagem separada) depende de UX
   que só faz sentido quando a Bia já sabe invocar as tools
 
-### [ ] 3.5 · Prompt update — quando simular
-- System prompt: depois que lead fala de preço/financiamento, Bia oferece
-  simular; nunca simula sem a renda (check_mcmv) OU sem preço
-  (simulate_financing respeita guardrail)
-- DoD: eval do caso "lead menciona preço" → Bia pergunta ou simula
+### [x] 3.5a · Modo copilot-only (fail-closed) — 2026-04-24
+- **Motivação (decisão 2026-04-24)**: lead ancora em número. Cálculo
+  contextualmente errado (taxa velha, ITBI errado, "primeiro imóvel"
+  mal classificado) é assimetricamente ruim — 1 erro em 100 destrói
+  confiança ganha nos outros 99. Corretor sanity-checka em segundos
+  o que Bia calculou em 100ms. Human-in-the-loop de alta alavancagem.
+- Migration `20260424000003_finance_copilot_mode.sql`: adiciona
+  `finance_simulate_mode` e `finance_mcmv_mode` (default `copilot`)
+- Migration `20260424000004_copilot_suggestions.sql`: tabela
+  `copilot_suggestions(id, lead_id, kind, payload, text_preview,
+  status, edited_text, discarded_reason, sent_message_id, meta)` com
+  lifecycle pending → sent | discarded
+- `src/lib/settings.ts`: novo `getSettingEnum<T>()` com validação
+  contra lista fechada (fallback silencioso se valor inválido)
+- `src/lib/finance-config.ts`: expõe `simulateMode`, `mcmvMode` em
+  `FinanceFlags`; tipo `FinanceDeliveryMode = 'copilot' | 'direct'`
+- `src/lib/copilot-promise.ts` (puro): `buildCopilotPromise({now, kind,
+  nome})` devolve texto-promessa calibrado por horário de SP:
+  - Seg-Sex 09–18h → "te chamo de volta em instantes"
+  - Seg-Sex 18–22h → "te respondo ainda hoje"
+  - Demais (noite/madrugada/fim de semana) → "amanhã cedo, no horário
+    comercial"
+  - **Invariant de safety**: nunca inclui R$, dígitos ou %
+- `src/lib/copilot-suggestions.ts` (wrapper DB): `insertCopilotSuggestion`,
+  `listPendingSuggestionsByLead`, `markSuggestionSent`,
+  `markSuggestionDiscarded` (idempotentes via `.eq('status','pending')`)
+- `src/agent/tools/simulate-financing.ts` + `check-mcmv.ts`:
+  branch em `mode`. Em modo copilot: output de sucesso **não inclui
+  os números** — Bia só vê o `text` (promessa) e `suggestion_id`.
+  Fail-closed mesmo se Bia ignorar o prompt
+- Fail em `ok:false` da função pura passa direto (sem copilot-gate) —
+  são perguntas ao lead sem número vinculante
+- Fail novo `missing_lead_id`: wrapper chama em copilot sem lead_id
+  (programming error) → texto pede identificação ao lead
+- 21 unit tests em `copilot-promise.test.ts` (buckets de horário +
+  linguagem por kind + **invariant de safety numérica**). **137/137
+  total verde**, tsc clean
+- **UI exposure no /ajustes deferida pro 3.6** (precisa input enum,
+  não cabe no pattern number/float atual)
+- **Criação automática de handoff deferida pro 3.6**: por ora a
+  sugestão fica pending orphaned; 3.6 surfaces no /inbox e decide
+  política de notificar corretor
 
-### [ ] 3.6 · Bubble "simulação" no /inbox
-- Tipo especial `message.meta.kind='simulation'` com JSON estruturado
-- Renderiza tabelinha inline, não texto bruto
-- DoD: simulação enviada aparece como card no inbox
+### [ ] 3.5b · Prompt update — quando simular
+- System prompt: depois que lead fala de preço/financiamento, Bia
+  oferece simular; nunca simula sem a renda (check_mcmv) OU sem
+  preço (simulate_financing respeita guardrail)
+- `qualification` schema ganha `renda` e `primeiro_imovel` (novos
+  campos opcionais). Migration + pipeline de extração
+- Eval cases: "lead menciona preço" → Bia responde com promessa
+  (copilot mode) ou simula (direct mode); "lead diz renda" → Bia
+  invoca check_mcmv; "lead diz 'pode simular'" sem preço → Bia
+  pergunta o valor
+- DoD: evals adicionados cobrem ambos os modos; Bia em copilot
+  não vaza números no texto (regex check no eval)
+
+### [ ] 3.6 · UI de sugestões do copilot no /inbox
+- Card lateral "Sugestões pendentes" lendo `copilot_suggestions`
+  via realtime
+- Preview completo (preço, entrada, prazo, taxa, parcela, total)
+  renderizado como tabela, não texto
+- 3 botões: **Enviar** (grava outbound + marca sugestão `sent`),
+  **Editar** (textarea com `text_preview` como base) e **Descartar**
+  (motivo opcional free-form)
+- Criação automática de handoff motivado (`ia_incerta`) quando
+  suggestion é criada E lead não está em handoff
+- `finance_simulate_mode` / `finance_mcmv_mode` ganham input enum
+  no `/ajustes` (pattern novo)
+- Telemetria: quantas sugestões foram enviadas sem edição vs
+  editadas vs descartadas (informa qualidade do texto da Bia)
+- DoD: fluxo E2E — Bia gera sugestão → handoff dispara → corretor
+  vê card → clica enviar → outbound chega no WhatsApp do lead
 
 ---
 

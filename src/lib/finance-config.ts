@@ -10,7 +10,23 @@
  *   - Se admin desregistrar a feature (finance_enabled=false), callers
  *     devem checar `flags.enabled` antes de chamar as tools.
  */
-import { getSettingBool, getSettingNumber } from "./settings";
+import { getSettingBool, getSettingEnum, getSettingNumber } from "./settings";
+
+/**
+ * Modo de entrega das tools financeiras (Track 3 · Slice 3.5a).
+ *   - 'copilot' (default, seguro): tool grava `copilot_suggestions`,
+ *     corretor revisa no /inbox e clica enviar. Bia responde com
+ *     texto-promessa curto. Fail-closed contra vazamento de número errado.
+ *   - 'direct': tool devolve o texto completo, Bia manda direto pro
+ *     lead. Só afrouxar quando admin confiar nas taxas cadastradas
+ *     + definições de MCMV.
+ */
+export type FinanceDeliveryMode = "copilot" | "direct";
+
+export const FINANCE_DELIVERY_MODES: readonly FinanceDeliveryMode[] = [
+  "copilot",
+  "direct",
+];
 
 export type FinanceFlags = {
   /** Kill switch geral. Quando false, tools de Track 3 são desregistradas. */
@@ -25,6 +41,13 @@ export type FinanceFlags = {
    * — mais flexível, mais arriscado.
    */
   requireExplicitPrice: boolean;
+  /**
+   * Modo de simulate_financing. Default 'copilot' — Bia nunca manda
+   * números direto sem corretor revisar.
+   */
+  simulateMode: FinanceDeliveryMode;
+  /** Modo de check_mcmv. Default 'copilot'. */
+  mcmvMode: FinanceDeliveryMode;
 };
 
 export type FinanceDefaults = {
@@ -53,6 +76,8 @@ export async function getFinanceConfig(): Promise<FinanceConfig> {
     simulateEnabled,
     mcmvEnabled,
     requireExplicitPrice,
+    simulateMode,
+    mcmvMode,
     entryPct,
     termMonths,
     sbpeRateBps,
@@ -62,6 +87,16 @@ export async function getFinanceConfig(): Promise<FinanceConfig> {
     getSettingBool("finance_simulate_enabled", true),
     getSettingBool("finance_mcmv_enabled", true),
     getSettingBool("finance_require_explicit_price", true),
+    getSettingEnum<FinanceDeliveryMode>(
+      "finance_simulate_mode",
+      FINANCE_DELIVERY_MODES,
+      "copilot",
+    ),
+    getSettingEnum<FinanceDeliveryMode>(
+      "finance_mcmv_mode",
+      FINANCE_DELIVERY_MODES,
+      "copilot",
+    ),
     getSettingNumber("finance_default_entry_pct", 20),
     getSettingNumber("finance_default_term_months", 360),
     getSettingNumber("finance_sbpe_rate_annual_bps", 1150),
@@ -74,6 +109,8 @@ export async function getFinanceConfig(): Promise<FinanceConfig> {
       simulateEnabled: enabled && simulateEnabled,
       mcmvEnabled: enabled && mcmvEnabled,
       requireExplicitPrice,
+      simulateMode,
+      mcmvMode,
     },
     defaults: {
       entryPct,

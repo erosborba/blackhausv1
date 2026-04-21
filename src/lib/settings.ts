@@ -47,6 +47,23 @@ export async function getSettingBool(key: string, fallback: boolean): Promise<bo
   return val === "true" || val === "1";
 }
 
+/**
+ * Lê um setting que só pode assumir valores de uma lista fechada.
+ * Se o valor gravado não está em `allowed` (typo, valor removido depois
+ * de uma migration), retorna `fallback` — evita crashar callers que
+ * esperam union type.
+ *
+ * Uso típico: modos de entrega ("copilot" | "direct"), enums de UI etc.
+ */
+export async function getSettingEnum<T extends string>(
+  key: string,
+  allowed: readonly T[],
+  fallback: T,
+): Promise<T> {
+  const val = await getSetting(key, fallback);
+  return (allowed as readonly string[]).includes(val) ? (val as T) : fallback;
+}
+
 export async function updateSetting(key: string, value: string): Promise<void> {
   const sb = supabaseAdmin();
   const { error } = await sb
