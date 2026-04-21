@@ -428,18 +428,30 @@ e de maior valor comercial), e deixamos `cities_fiscal` pro fim
   sugestão fica pending orphaned; 3.6 surfaces no /inbox e decide
   política de notificar corretor
 
-### [ ] 3.5b · Prompt update — quando simular
-- System prompt: depois que lead fala de preço/financiamento, Bia
-  oferece simular; nunca simula sem a renda (check_mcmv) OU sem
-  preço (simulate_financing respeita guardrail)
-- `qualification` schema ganha `renda` e `primeiro_imovel` (novos
-  campos opcionais). Migration + pipeline de extração
-- Eval cases: "lead menciona preço" → Bia responde com promessa
-  (copilot mode) ou simula (direct mode); "lead diz renda" → Bia
-  invoca check_mcmv; "lead diz 'pode simular'" sem preço → Bia
-  pergunta o valor
-- DoD: evals adicionados cobrem ambos os modos; Bia em copilot
-  não vaza números no texto (regex check no eval)
+### [x] 3.5b · Prompt update — quando simular — 2026-04-24
+- `SYSTEM_SDR` ganhou bloco "Regras de cálculos financeiros":
+  nunca inventar parcela/subsídio/taxa; pedir preço-alvo antes
+  de prometer simulação; pedir renda + primeiro_imovel antes de
+  qualquer número MCMV; em copilot mode, repassar texto-promessa
+  sem acrescentar estimativas próprias
+- `ROUTER_SYSTEM` + prompt do `routerNode` extraem `renda` (number
+  em BRL/mês) e `primeiro_imovel` (boolean) quando aparecem no turno.
+  Critério `qualificar` estendido pra cobrir simulação sem preço e
+  MCMV sem renda/primeiro_imovel
+- `Qualification` type em `src/lib/leads.ts` ganhou campos opcionais
+  `renda?: number` e `primeiro_imovel?: boolean`. Zero-migration
+  (jsonb do banco já aceita)
+- Eval harness: comparador ganhou dimensão `replyMustNotMatch`
+  (regex case-insensitive) pra safety de números — substring não
+  detecta "R$ 3.500", "parcela 2.800", "3%". Aceita forma pura ou
+  `/pattern/flags`
+- 5 eval cases novos (tag `3.5b`): extração de renda, extração
+  dupla renda+primeiro_imovel, Bia pergunta renda quando MCMV
+  mencionado, Bia pergunta preço quando simulação pedida sem
+  âncora, safety crítico (lead dá todos os números e Bia mesmo
+  assim NÃO inventa parcela)
+- DoD: 137/137 unit tests verdes · tsc clean · evals/seed.json
+  cobrindo ambos os modos · safety regex ataca R$/parcela/%/faixa
 
 ### [ ] 3.6 · UI de sugestões do copilot no /inbox
 - Card lateral "Sugestões pendentes" lendo `copilot_suggestions`

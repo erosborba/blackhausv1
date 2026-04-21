@@ -210,7 +210,9 @@ Estado atual da qualificação:
 ${JSON.stringify(state.qualification)}
 
 Extraia também QUALQUER campo da qualificação que apareça na última mensagem
-(tipo, quartos, cidade, bairros, faixa_preco_min, faixa_preco_max, finalidade, prazo, pagamento, usa_fgts, usa_mcmv).
+(tipo, quartos, cidade, bairros, faixa_preco_min, faixa_preco_max, finalidade, prazo, pagamento, usa_fgts, usa_mcmv, renda, primeiro_imovel).
+  - renda: number em BRL/mês (bruta familiar) quando o lead declara. Ex: "ganho 8 mil" → 8000; "renda de 12k" → 12000.
+  - primeiro_imovel: boolean só quando o lead afirma/nega explicitamente ("é o primeiro", "já tenho outro", "nunca comprei"). Caso contrário omite.
 Anexe um campo "extracted" no JSON com SOMENTE os campos detectados.`;
 
   const t0 = Date.now();

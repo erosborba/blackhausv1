@@ -13,6 +13,19 @@ export type Qualification = {
   pagamento?: "a_vista" | "financiamento";
   usa_fgts?: boolean;
   usa_mcmv?: boolean;
+  /**
+   * Renda bruta mensal familiar em BRL. Adicionado em Track 3 · 3.5b
+   * pra alimentar `check_mcmv` (faixas dependem de renda) e calibrar
+   * `simulate_financing` (conforto com parcela). Campo opcional — só
+   * aparece quando o lead declara voluntariamente ou Bia pergunta.
+   */
+  renda?: number;
+  /**
+   * Lead declarou que é o primeiro imóvel (critério legal MCMV).
+   * Track 3 · 3.5b. Só `true`/`false` quando o lead confirma
+   * explicitamente — `undefined` = ainda não perguntado.
+   */
+  primeiro_imovel?: boolean;
 };
 
 export type Lead = {

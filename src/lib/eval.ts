@@ -63,6 +63,14 @@ export type EvalExpected = {
   replyMustContain?: string;
   /** Substring que a última reply NÃO deve conter (case-insensitive). */
   replyMustNotContain?: string;
+  /**
+   * Regex (source + opcionais flags) que a última reply NÃO pode casar.
+   * Adicionado em Track 3 · 3.5b pra safety de cálculos financeiros —
+   * substring não detecta "R$ 3.500", "parcela de 2.800", "3%", etc.
+   * Formato: string pura (flags `i` implícito) OU `/pattern/flags`.
+   * Ex: `"R\\$|\\bparcela\\b.*\\d"` ou `"/\\b\\d+%/i"`.
+   */
+  replyMustNotMatch?: string;
 };
 
 export type EvalConversationRow = {
@@ -105,7 +113,8 @@ export type EvalCheck = {
     | "qualificationKeys"
     | "mustMentionEmpreendimentoId"
     | "replyMustContain"
-    | "replyMustNotContain";
+    | "replyMustNotContain"
+    | "replyMustNotMatch";
   pass: boolean;
   expected: unknown;
   actual: unknown;
@@ -257,6 +266,43 @@ export function compareExpected(
       expected: expected.replyMustNotContain,
       actual: actual.reply.slice(0, 200),
       pass: !hay.includes(needle),
+    });
+  }
+
+  // 10. replyMustNotMatch (regex) — safety check pra cálculos financeiros.
+  //
+  // Aceita duas formas:
+  //   "pattern"          → compilado como new RegExp(pattern, "i")
+  //   "/pattern/flags"   → extrai pattern + flags (sempre força "i" no mínimo)
+  //
+  // Se o regex não compilar, o check falha com `detail` explicando — fail-loud
+  // pra não silenciar typos no eval.
+  if (expected.replyMustNotMatch) {
+    const raw = expected.replyMustNotMatch;
+    let re: RegExp | null = null;
+    let compileError: string | null = null;
+    try {
+      const m = /^\/(.+)\/([gimsuy]*)$/.exec(raw);
+      if (m) {
+        const flags = m[2].includes("i") ? m[2] : m[2] + "i";
+        re = new RegExp(m[1], flags);
+      } else {
+        re = new RegExp(raw, "i");
+      }
+    } catch (e) {
+      compileError = e instanceof Error ? e.message : String(e);
+    }
+    const matched = re ? re.test(actual.reply) : false;
+    checks.push({
+      dimension: "replyMustNotMatch",
+      expected: expected.replyMustNotMatch,
+      actual: actual.reply.slice(0, 200),
+      pass: re !== null && !matched,
+      detail: compileError
+        ? `regex inválido: ${compileError}`
+        : matched
+          ? `casou (reply tem ${re!.source})`
+          : undefined,
     });
   }
 
