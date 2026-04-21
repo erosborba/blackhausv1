@@ -325,11 +325,22 @@ e de maior valor comercial), e deixamos `cities_fiscal` pro fim
   feliz + inválidos. `npm run test:unit` verde (62/62 geral)
 - DoD: atendido. Lib 100% testável sem mock de banco.
 
-### [ ] 3.4 · Tool `check_mcmv` (promovida pra antes do simulate)
-- Input: renda_bruta, primeiro_imovel
-- Output: faixa, subsídio estimado, taxa efetiva, teto de imóvel
-- Lê `flags.mcmvEnabled` do `getFinanceConfig()` — retorna null se off
-- DoD: tool no registry, eval case adicionado
+### [x] 3.4 · Tool `check_mcmv` (promovida pra antes do simulate) — 2026-04-24
+- `src/agent/tools/check-mcmv.ts` — wrapper com side-effect (lê config)
+- `src/lib/mcmv-response.ts` — função pura `computeMcmvResponse` que
+  delega toda lógica à lib pura `mcmvBand()` + monta texto pt-BR
+- Respeita `flags.mcmvEnabled` → retorna `{ok:false, reason:'mcmv_disabled'}`
+- Texto inclui faixa, teto de imóvel, subsídio (quando >0), taxa anual
+  em pt-BR, e fecha com "quer simular a parcela?"
+- Handoff de casos edge:
+  - `renda_invalida` (0, NaN) → Bia pede renda
+  - `primeiro_imovel_nao_informado` (undefined) → Bia pergunta antes
+  - `nao_primeiro_imovel` → oferece SBPE
+  - `renda_acima_teto` → oferece SBPE como upgrade positivo
+- 12 unit tests em `check-mcmv.test.ts` (74/74 total verde)
+- **Eval case deferido pro 3.5**: Bia não invoca a tool sozinha até
+  o prompt update; schema de `qualification` ainda não tem
+  `renda`/`primeiro_imovel`
 
 ### [ ] 3.3 · Tool `simulate_financing`
 - Input: preco_imovel (obrigatório), entrada, prazo_meses, sistema

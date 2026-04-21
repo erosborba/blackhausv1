@@ -38,3 +38,9 @@ export {
   type CancelVisitInput,
   type CancelVisitOutput,
 } from "./reschedule-visit";
+
+export {
+  checkMcmv,
+  type CheckMcmvInput,
+  type CheckMcmvOutput,
+} from "./check-mcmv";
