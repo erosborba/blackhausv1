@@ -362,11 +362,28 @@ e de maior valor comercial), e deixamos `cities_fiscal` pro fim
 - 24 unit tests em `simulate-financing.test.ts` (98/98 total verde)
 - **Eval case deferido pro 3.5**: depende de prompt/tool_use
 
-### [ ] 3.2 · Tabela cidades + ITBI (refinamento)
-- `cities_fiscal` (cidade text, uf text, itbi_rate numeric, reg_cartorio numeric)
-- Seed: 30 capitais + regiões atendidas
-- Fallback pro `finance_itbi_default_bps` quando cidade ausente
-- DoD: query por cidade funciona
+### [x] 3.2 · Tabela cidades + ITBI — 2026-04-24
+- Migration `20260424000002_cities_fiscal.sql`: tabela
+  `cities_fiscal(cidade_slug, uf, cidade_display, itbi_bps,
+  reg_cartorio_bps, source, updated_at)` com PK (cidade_slug, uf)
+- Seed com 54 rows: 27 capitais + 27 metropolitanas/regionais,
+  alíquotas ITBI de 2024 em bps (SP/RJ/MG/DF/BH/Salvador/Recife/POA=300,
+  Curitiba=270, Contagem/Teresina=250, Maceió=150, demais=200)
+- `src/lib/city-slug.ts` — funções puras `citySlug()` (NFD +
+  lowercase + dash-collapse) e `normalizeUf()` (validação /^[A-Z]{2}$/)
+- `src/lib/cities-fiscal.ts` — `getCityFiscal()` + `resolveItbiBps()`
+  com TTL-cache 5min (cidades mudam raramente; mais agressivo que o
+  60s de `system_settings`). Fallback silencioso em erro de DB
+- 18 unit tests em `cities-fiscal.test.ts` (slug de acentos/caixa/
+  pontuação/idempotência, UF normalização, compat contra os 54
+  slugs do seed). 116/116 total verde
+- `reg_cartorio_bps` fica nullable — emolumentos de registro são
+  progressivos por tabela CNJ, difícil reduzir a um único bps.
+  Fica como extensão futura quando valer a pena modelar
+- **Integração com `simulate_financing` deferida pro slice 3.5**
+  (prompt update) ou pra um slice 3.3b dedicado — a decisão
+  (mostrar ITBI embutido ou em mensagem separada) depende de UX
+  que só faz sentido quando a Bia já sabe invocar as tools
 
 ### [ ] 3.5 · Prompt update — quando simular
 - System prompt: depois que lead fala de preço/financiamento, Bia oferece
