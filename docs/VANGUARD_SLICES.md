@@ -84,9 +84,10 @@ merge**. Sem isso, qualquer prompt change é fé.
   - [x] 20 casos no arquivo — 5 handoff, 5 qualification, 5 grounding
         (placeholders de empreendimento_id — veja notas), 5 tone/closing
   - [x] `npm run eval:seed` upserta; `npm run eval` roda os 20
-  - [ ] Pelo menos 16/20 passam (baseline atual aceita regressão, mas
-        documente quais 4 falham no `VANGUARD.md > Lições`) — **PENDENTE
-        primeiro run manual contra LLM real**
+  - [x] Pelo menos 16/20 passam — **baseline firmado em 18/20 (commit
+        `44bb334`, 2026-04-21)**. Refinar pra 20/20 é pendência diferida
+        P-1 em `VANGUARD.md > Pendências diferidas` (requer substituir 5
+        placeholders `REPLACE_WITH_REAL_EMP_ID_*` por UUIDs reais do DB)
 - **Notas de implementação**:
   - 5 casos de grounding usam `mustMentionEmpreendimentoId:
     REPLACE_WITH_REAL_EMP_ID_*` — antes de rodar, o operador substitui pelos

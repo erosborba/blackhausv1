@@ -408,3 +408,83 @@ Substitui por dois slices leves que fecham os gaps reais:
 
 ### Track 5 — Event outreach
 <!-- preenchido ao fechar -->
+
+---
+
+## Pendências diferidas (revisitar antes de mexer no agente)
+
+Itens conscientemente adiados. Não urgentes, mas vão doer se você mexer
+em prompt/lógica da Bia sem resolver antes.
+
+### P-1 · Firmar baseline do eval com 20/20 real
+
+**Status**: baseline atual é 18/20 (firmado em 21/04, commit `44bb334`).
+Aceitável como piso do CI gate (G-1), mas não é 100%.
+
+**O que o eval faz, em uma frase**: roda 20 conversas sintéticas pelo
+mesmo `runSDR()` de produção e compara estado final (reply, handoff,
+stage, score, sources) vs gabarito em `evals/seed.json`. Cinto de
+segurança pra mudanças de prompt/graph — detecta regressão antes do
+merge.
+
+**Precisa rodar quando**:
+- Antes de mergear PR que mexe em `src/agent/**`, `src/lib/lead-memory.ts`,
+  `src/lib/copilot.ts`, `src/lib/brief.ts`, ou system prompt
+- Depois de upgrade de modelo (Sonnet novo, Haiku novo)
+- Quando ativar o CI automático (ver P-2)
+
+**Não precisa rodar em**: qualquer track que não toca agente (Track 3 até
+3.3 é lib pura; Track 4 até 4.2 é TTS isolado; etc.)
+
+**Custo por run**: ~$0.05–$0.10 (20 casos × 1–3 turns × router Haiku +
+answer Sonnet). Runs demoram ~140s.
+
+**Passos pra firmar 20/20 real**:
+1. `npm run eval:emps` — lista empreendimentos reais do DB (helper
+   `scripts/eval-list-emps.mjs`)
+2. Editar `evals/seed.json` — 5 casos de grounding têm
+   `mustMentionEmpreendimentoId: "REPLACE_WITH_REAL_EMP_ID_*"`.
+   Substituir por UUIDs reais
+3. `npm run eval:seed` (idempotente por `title`)
+4. `npm run eval` com `npm run dev` rodando em outro terminal
+5. Se passar 20/20: `npm run eval -- --update-baseline` (grava
+   `evals/baseline.json`)
+6. Se ficar com flaky (ex.: o caso `tone · lead indeciso` conhecido):
+   `npm run eval -- --update-baseline --force` aceita e grava warning
+
+**Por que não fiz agora**: Track 3 (finanças) é lib pura, não toca
+agente. Baseline atual (18/20) já protege contra regressão >10% — o
+gate do CI funciona. Firmar 20/20 é refinamento, não bloqueador.
+
+### P-2 · Ativar CI gate automático
+
+**Status**: `.github/workflows/eval.yml` existe mas tá dormente — não
+tem os secrets pra rodar.
+
+**Pra ativar**:
+- GitHub repo → Settings → Secrets and variables → Actions → New secret:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `ANTHROPIC_API_KEY`
+  - `OPENAI_API_KEY` (embeddings)
+  - `BH_EVAL_TOKEN` (qualquer string aleatória; só precisa bater com
+    `.env.local`)
+- Depois do primeiro PR que mexer em agente, o workflow dispara sozinho
+
+**Custo**: ~$0.10 por PR relevante. Irrelevante no volume atual.
+
+**Por que não fiz**: depende de você ter acesso às secrets da Vercel/
+Supabase de prod. É 5 minutos de UI, não vale abrir um slice.
+
+### P-3 · Substituir fator câmbio fixo por cotação real
+
+`src/lib/gestor-health.ts` converte USD→BRL com `5` hardcoded. Aceita
+como sinal, ruim como número contábil. Refinar quando `ai_usage_log`
+tiver `fx_rate_snapshot` ou quando integrarmos cotação live.
+
+### P-4 · Seed helper que busca empreendimento por slug
+
+Os placeholders `REPLACE_WITH_REAL_EMP_ID_*` no seed exigem passo
+manual. Helper que resolve `slug → uuid` em runtime do `eval-seed.mjs`
+elimina isso. Pequeno, mas vale fazer antes de expandir o seed além
+dos 20 casos atuais.
