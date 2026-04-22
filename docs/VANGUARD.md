@@ -488,3 +488,75 @@ Os placeholders `REPLACE_WITH_REAL_EMP_ID_*` no seed exigem passo
 manual. Helper que resolve `slug → uuid` em runtime do `eval-seed.mjs`
 elimina isso. Pequeno, mas vale fazer antes de expandir o seed além
 dos 20 casos atuais.
+
+### P-5 · Bia infere mal quando resposta do lead é ambígua (áudio + negação)
+
+**Status**: observado em produção 2026-04-22. Lead respondeu em áudio
+"não pode ser em qualquer outro lugar" e a Bia interpretou como "só no
+Lindóia" quando o lead quis dizer "tanto faz, pode ser em qualquer
+lugar" (confirmado no turno seguinte: "não, eu disse que pode ser
+qualquer lugar"). Combinação de dois fatores:
+
+1. Ruído de transcrição em áudio (Whisper/Evolution pode inverter
+   polaridade, cortar palavra). Hoje a Bia não sabe que o turno veio
+   de áudio — o agente recebe só o texto transcrito.
+2. Frases curtas ambíguas ("tanto faz", "pode ser", negação dupla
+   coloquial) são interpretadas contra o último turno da própria Bia,
+   sem pedir confirmação.
+
+**Correções propostas** (duas frentes, independentes):
+
+- **Curta** — regra de prompt em `SYSTEM_SDR`: "Se a resposta do lead
+  for ambígua (negação dupla, frase curta), confirme UMA vez antes de
+  registrar preferência. Não assuma pela sua última pergunta." 2 linhas,
+  mitiga sem infra.
+- **Média** — propagar `via: "audio"` no turno (estado do grafo) e
+  expor no system prompt algo como "este turno veio de áudio
+  transcrito, pode ter ruído". Permite Haiku pedir confirmação com
+  mais peso quando áudio + ambiguidade. Requer campo no webhook
+  Evolution + passar pelo state.
+
+**Por que não fiz agora**: ambas mexem em prompt da Bia, que hoje já
+tem guardrail financeiro recente (Track 3). Prefiro ajustar os dois
+num slice só, com eval de regressão (cenários com áudio + ambíguo +
+financeiro) pra não quebrar casos já cobertos.
+
+### P-6 · Bia escala resposta trivial quando lead não sabe faixa de preço
+
+**Status**: observado em produção 2026-04-22. Lead respondeu "ainda
+não decidi valores" quando perguntado sobre orçamento. A Bia
+respondeu "vou confirmar esse dado com o consultor e já te volto" —
+escalação inútil que quebra o flow de qualificação. Lead esperava
+ancoragem ("studios em Curitiba costumam ficar entre X e Y"), não
+handoff.
+
+**Causa raiz**:
+
+1. O bloco de regras financeiras no `SYSTEM_SDR` (Track 3) diz "NUNCA
+   cite valores específicos em R$ que não apareçam no contexto". A
+   Bia generalizou isso pra QUALQUER valor, inclusive faixas de
+   referência que são ferramenta de qualificação, não cotação.
+2. Não tem "âncoras de mercado" no RAG (ex: `MIN/MAX preco_inicial`
+   por cidade/tipologia). Mesmo se o prompt permitisse, ela não teria
+   números pra usar.
+
+**Correções propostas**:
+
+- **Curta** — relaxar o prompt pra distinguir *valor específico
+  prometido* (proibido, é cotação) de *faixa de referência pra
+  qualificar* (permitido, com "geralmente", "costuma ficar",
+  "depende de X"). Ver rascunho de texto no turno da conversa.
+- **Média** — query SQL agregando `MIN/MAX(preco_inicial)` por
+  `cidade + bairro + tipologia` dos empreendimentos ativos, injetada
+  no system prompt quando o router classifica `qualificar` com
+  `missing=faixa_preco`. Aí a Bia fala faixa real do portfólio, não
+  inventada. Sem LLM novo, só contexto enriquecido.
+
+**Por que não fiz agora**: mesma razão de P-5 — prefiro um slice que
+revisita o prompt da Bia de vez, com eval de regressão cobrindo
+(a) guardrail financeiro atual não relaxa em cotação real, (b) faixa
+de referência passa a ser emitida em "não sei quanto quero investir",
+(c) âncoras vêm do SQL, não alucinação.
+
+**Dependências entre P-5 e P-6**: ambos editam `SYSTEM_SDR`. Fazer no
+mesmo slice evita churn e evita conflito de eval baseline.
