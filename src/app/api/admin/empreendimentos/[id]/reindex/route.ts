@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { reindexEmpreendimento } from "@/lib/empreendimentos";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,8 @@ type Ctx = { params: Promise<{ id: string }> };
  * corrompe.
  */
 export async function POST(_req: NextRequest, ctx: Ctx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   try {
     const indexed = await reindexEmpreendimento(id);

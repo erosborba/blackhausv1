@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runAllCleanup } from "@/lib/cleanup";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,11 +11,10 @@ export const maxDuration = 300;
  *
  * Versão "admin" do cron — mesmo runAllCleanup, mas sem a checagem de
  * CRON_SECRET. Serve pro botão "Executar agora" na página /admin/cleanup.
- *
- * Em prod, aqui deveria ter auth de admin (cookie/session). Por enquanto
- * o admin inteiro é "quem chega, opera" — manter consistente com o resto.
  */
 export async function POST() {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   try {
     const result = await runAllCleanup();
     return NextResponse.json(result);

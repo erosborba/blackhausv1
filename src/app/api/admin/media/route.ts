@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { signMediaUrl } from "@/lib/media";
+import { requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
  * admin. O bucket é privado — a service_role gera a URL e a UI consome.
  */
 export async function GET(req: NextRequest) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const url = new URL(req.url);
   const path = url.searchParams.get("path");
   if (!path) {

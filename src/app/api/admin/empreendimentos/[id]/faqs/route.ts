@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reindexEmpreendimento } from "@/lib/empreendimentos";
+import { requireAdminApi, requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,8 @@ const faqSchema = z.object({
 
 /** GET /api/admin/empreendimentos/[id]/faqs — lista FAQs do empreendimento. */
 export async function GET(_req: NextRequest, ctx: Ctx) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const sb = supabaseAdmin();
   const { data, error } = await sb
@@ -34,6 +37,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  * visível pro corretor), mas a Bia só vai usá-la depois do reindex.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const body = await req.json().catch(() => null);
   const parsed = faqSchema.safeParse(body);

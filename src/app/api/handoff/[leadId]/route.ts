@@ -1,7 +1,7 @@
 ﻿import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getCurrentRole } from "@/lib/auth/role-server";
+import { requireSessionApi } from "@/lib/auth/api-guard";
 import {
   HANDOFF_RATINGS,
   getLatestFeedback,
@@ -28,6 +28,8 @@ type Ctx = { params: Promise<{ leadId: string }> };
  *   - último feedback (pra pre-selecionar radio)
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const { leadId } = await ctx.params;
   const sb = supabaseAdmin();
 
@@ -93,8 +95,10 @@ const postSchema = z.object({
  * Emite lead_event `handoff_feedback` pra aparecer na timeline do /inbox/[id].
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const { leadId } = await ctx.params;
-  const role = await getCurrentRole();
+  const role = gate.agent.role;
   const body = await req.json().catch(() => null);
   const parsed = postSchema.safeParse(body);
   if (!parsed.success) {

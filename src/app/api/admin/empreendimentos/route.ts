@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reindexEmpreendimento } from "@/lib/empreendimentos";
+import { requireAdminApi, requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +38,8 @@ const empSchema = z.object({
 });
 
 export async function GET() {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("empreendimentos")
@@ -47,6 +50,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   try {
     const body = await req.json().catch(() => null);
     const parsed = empSchema.safeParse(body);

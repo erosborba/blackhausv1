@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Foto, FotoCategoria } from "@/lib/empreendimentos-shared";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,8 @@ async function loadEmp(id: string) {
  * NÃO aciona extração/RAG — fotos são só mídia de envio.
  */
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const loaded = await loadEmp(id);
   if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error }, { status: loaded.status });
@@ -125,6 +128,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
  * Edita metadados de uma foto específica in-place (sem re-upload).
  */
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const loaded = await loadEmp(id);
   if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error }, { status: loaded.status });

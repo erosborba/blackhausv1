@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await params;
   const body = await req.json().catch(() => null);
   const parsed = patchSchema.safeParse(body);

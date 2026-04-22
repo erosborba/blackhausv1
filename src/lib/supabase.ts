@@ -10,9 +10,9 @@ let _admin: SupabaseClient | null = null;
 export function supabaseAdmin(): SupabaseClient {
   if (_admin) return _admin;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ausentes");
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY ausentes");
   }
   _admin = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -31,11 +31,11 @@ let _browser: SupabaseClient | null = null;
 export function supabaseBrowser(): SupabaseClient {
   if (_browser) return _browser;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY ausentes");
+  const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !publishable) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ausentes");
   }
-  _browser = createClient(url, anon, {
+  _browser = createClient(url, publishable, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return _browser;

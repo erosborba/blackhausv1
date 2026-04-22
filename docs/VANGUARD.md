@@ -177,8 +177,8 @@ Cada track adiciona sua seção aqui quando fecha.
 - Páginas: `/gestor/funnel`, `/gestor/rag-gaps`, `/gestor/health` — todas
   linkadas da `/gestor` principal
 - GitHub Action `.github/workflows/eval.yml` (dormente até secrets
-  setados — SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY,
-  OPENAI_API_KEY, BH_EVAL_TOKEN)
+  setados — SUPABASE_URL, SUPABASE_SECRET_KEY, SUPABASE_PUBLISHABLE_KEY,
+  ANTHROPIC_API_KEY, OPENAI_API_KEY, BH_EVAL_TOKEN)
 - `evals/baseline.json` (inicialmente vazio) + `evals/history.jsonl`
   (append a cada run)
 - TECH_DEBT.md: resolvido item "Funnel approximation"
@@ -464,7 +464,8 @@ tem os secrets pra rodar.
 **Pra ativar**:
 - GitHub repo → Settings → Secrets and variables → Actions → New secret:
   - `SUPABASE_URL`
-  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `SUPABASE_SECRET_KEY`
+  - `SUPABASE_PUBLISHABLE_KEY`
   - `ANTHROPIC_API_KEY`
   - `OPENAI_API_KEY` (embeddings)
   - `BH_EVAL_TOKEN` (qualquer string aleatória; só precisa bater com

@@ -12,8 +12,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
  *
  * Nunca redireciona:
  *   - /login, /api/auth/*        (loop/circular)
- *   - /api/webhook/*, /api/cron/*, /api/handoff/* (webhooks públicos
- *     com auth própria via secret header)
+ *   - /api/webhook/*, /api/cron/* (auth própria via secret header)
  *   - /m/* já é mobile (para o UA redirect)
  *
  * Auth é desligado em dev quando BH_ALLOW_ROLE_STUB=1 + NODE_ENV!==production
@@ -40,12 +39,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/auth/")) return true;
   if (pathname.startsWith("/api/webhook/")) return true;
   if (pathname.startsWith("/api/cron/")) return true;
-  if (pathname.startsWith("/api/handoff/")) return true;
   // Eval harness autentica via BH_EVAL_TOKEN (query/header). Mesmo padrão
   // dos webhooks: middleware fica fora, route handler valida.
   if (pathname.startsWith("/api/eval/")) return true;
-  // Rota pública de handoff (corretor clica link do WhatsApp sem login).
-  if (pathname.startsWith("/handoff/")) return true;
   return false;
 }
 
@@ -83,10 +79,10 @@ export async function middleware(req: NextRequest) {
   // ---------- 1. Auth gate ----------
   if (!authDisabled() && !isPublicPath(pathname)) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-    if (url && anon) {
-      const supa = createServerClient(url, anon, {
+    if (url && publishable) {
+      const supa = createServerClient(url, publishable, {
         cookies: {
           getAll() {
             return req.cookies.getAll().map((c) => ({

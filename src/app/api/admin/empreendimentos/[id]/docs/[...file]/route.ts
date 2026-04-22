@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reindexEmpreendimento, type Midia } from "@/lib/empreendimentos";
 import type { Foto } from "@/lib/empreendimentos-shared";
+import { requireAdminApi, requireSessionApi } from "@/lib/auth/api-guard";
 
 /**
  * Redireciona pra signed URL do bucket `empreendimentos` pra download/preview.
@@ -52,6 +53,8 @@ async function ensureBelongs(
 }
 
 export async function GET(_req: Request, { params }: Params) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const { id, file } = await params;
   // O client passa `encodeURIComponent(m.path)` num único segmento, mas
   // o Next já decoda nas partes. Junta tudo de volta.
@@ -87,6 +90,8 @@ export async function GET(_req: Request, { params }: Params) {
  * mantemos por consistência se no futuro raw ficar atrelado ao arquivo).
  */
 export async function DELETE(_req: Request, { params }: Params) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id, file } = await params;
   const storagePath = file.map(decodeURIComponent).join("/");
 

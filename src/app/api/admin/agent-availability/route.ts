@@ -4,6 +4,7 @@ import {
   createAvailabilityWindow,
   deactivateAvailabilityWindow,
 } from "@/lib/agent-availability";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET() {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   try {
     const data = await listAgentsWithAvailability();
     return NextResponse.json({ ok: true, data });
@@ -31,6 +34,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   let body: {
     agent_id?: string;
     weekday?: number;
@@ -70,6 +75,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const id = req.nextUrl.searchParams.get("id");
   if (!id) {
     return NextResponse.json({ ok: false, error: "id obrigatório" }, { status: 400 });

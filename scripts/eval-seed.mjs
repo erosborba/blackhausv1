@@ -7,7 +7,7 @@
  *   node scripts/eval-seed.mjs --dry          # só printa o que ia inserir
  *   node scripts/eval-seed.mjs --reset        # apaga TUDO e re-seeda
  *
- * Conecta direto no Postgres via SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+ * Conecta direto no Postgres via SUPABASE_URL + SUPABASE_SECRET_KEY
  * (mesmas envs que o app). Upsert por `title` — re-rodar é idempotente.
  *
  * Invariants: I-4 (evaluation-first). Casos são a unidade de verdade do
@@ -53,9 +53,9 @@ const fileArg = args.find((a) => a.startsWith("--file="))?.slice(7);
 const file = fileArg || "evals/seed.json";
 
 const SUPABASE_URL = env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error("[seed] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY faltando.");
+const SECRET_KEY = env.SUPABASE_SECRET_KEY;
+if (!SUPABASE_URL || !SECRET_KEY) {
+  console.error("[seed] SUPABASE_URL / SUPABASE_SECRET_KEY faltando.");
   process.exit(2);
 }
 
@@ -76,7 +76,7 @@ if (dry) {
   process.exit(0);
 }
 
-const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
+const sb = createClient(SUPABASE_URL, SECRET_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 

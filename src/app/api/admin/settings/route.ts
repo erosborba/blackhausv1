@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { listSettings, updateSetting } from "@/lib/settings";
+import { requireAdminApi, requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   try {
     const settings = await listSettings();
     return NextResponse.json({ ok: true, data: settings });
@@ -15,6 +18,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   let body: { key: string; value: string };
   try {
     body = await req.json();

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reindexEmpreendimento } from "@/lib/empreendimentos";
+import { requireAdminApi, requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,8 @@ const patchSchema = z.object({
 type RouteCtx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, ctx: RouteCtx) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const sb = supabaseAdmin();
   const { data, error } = await sb.from("empreendimentos").select("*").eq("id", id).maybeSingle();
@@ -44,6 +47,8 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const body = await req.json().catch(() => null);
   const parsed = patchSchema.safeParse(body);
@@ -89,6 +94,8 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
  * de verdade e já foi limpo.
  */
 export async function DELETE(_req: NextRequest, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const sb = supabaseAdmin();
 

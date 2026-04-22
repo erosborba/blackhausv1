@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Foto } from "@/lib/empreendimentos-shared";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,8 @@ const BUCKET = "empreendimentos";
  * se o blob já não existir, seguimos limpando o registro assim mesmo.
  */
 export async function DELETE(_req: Request, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id, fotoId } = await ctx.params;
   const sb = supabaseAdmin();
 

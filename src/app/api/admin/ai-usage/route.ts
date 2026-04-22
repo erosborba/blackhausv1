@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ export const dynamic = "force-dynamic";
  * Default `days=7`. Cap em 90 pra não varrer a tabela inteira acidentalmente.
  */
 export async function GET(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const sp = req.nextUrl.searchParams;
   const daysRaw = Number(sp.get("days") ?? "7");
   const days = Math.max(1, Math.min(90, Number.isFinite(daysRaw) ? daysRaw : 7));

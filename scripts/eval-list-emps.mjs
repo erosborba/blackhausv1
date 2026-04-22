@@ -48,9 +48,9 @@ const grepArg = args.find((a) => a.startsWith("--grep="));
 const grep = grepArg ? grepArg.split("=")[1].toLowerCase() : null;
 
 const url = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
-const key = env.SUPABASE_SERVICE_ROLE_KEY;
+const key = env.SUPABASE_SECRET_KEY;
 if (!url || !key) {
-  console.error("faltando SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
+  console.error("faltando SUPABASE_URL / SUPABASE_SECRET_KEY");
   process.exit(1);
 }
 

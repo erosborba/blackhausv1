@@ -4,6 +4,8 @@ out
 .env
 .env.local
 .env.*.local
+.env.railway
+.env.railway.example
 *.log
 .DS_Store
 .vercel

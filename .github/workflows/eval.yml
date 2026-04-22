@@ -5,7 +5,8 @@ name: eval
 #
 # Secrets necessários:
 #   SUPABASE_URL
-#   SUPABASE_SERVICE_ROLE_KEY
+#   SUPABASE_SECRET_KEY
+#   SUPABASE_PUBLISHABLE_KEY
 #   BH_EVAL_TOKEN            (pra autenticar o CLI no /api/eval/run)
 #   ANTHROPIC_API_KEY
 #   OPENAI_API_KEY           (retrieval usa embeddings OpenAI)
@@ -34,7 +35,8 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       BH_EVAL_TOKEN: ${{ secrets.BH_EVAL_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import { extractFromFiles } from "@/lib/empreendimentos-extract";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
  * arquivos; ficam no draft/ mesmo — não vale a complicação pra MVP.)
  */
 export async function POST(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const form = await req.formData().catch(() => null);
   if (!form) {
     return NextResponse.json({ ok: false, error: "invalid multipart form" }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { extractFromFiles } from "@/lib/empreendimentos-extract";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 import {
   mergeExtracted,
   mergeRawKnowledge,
@@ -26,6 +27,8 @@ type RouteCtx = { params: Promise<{ id: string }> };
  * UI mostrar ao corretor o que foi adicionado.
  */
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
 
   // Busca o empreendimento ANTES de subir arquivos — se nem existir, não

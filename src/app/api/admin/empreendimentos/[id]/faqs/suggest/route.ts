@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { suggestFaqs } from "@/lib/empreendimentos-faq-suggest";
 import type { Empreendimento, Faq } from "@/lib/empreendimentos";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,8 @@ type Ctx = { params: Promise<{ id: string }> };
  * corretor revisar e aprovar no painel.
  */
 export async function POST(_req: NextRequest, ctx: Ctx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const sb = supabaseAdmin();
 

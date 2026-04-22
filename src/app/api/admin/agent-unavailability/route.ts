@@ -4,6 +4,7 @@ import {
   createUnavailability,
   deactivateUnavailability,
 } from "@/lib/agent-availability";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ export const dynamic = "force-dynamic";
  */
 
 export async function GET(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const agentId = req.nextUrl.searchParams.get("agent_id") ?? undefined;
   try {
     const data = await listUnavailability(agentId);
@@ -30,6 +33,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   let body: {
     agent_id?: string;
     start_at?: string;
@@ -64,6 +69,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const id = req.nextUrl.searchParams.get("id");
   if (!id) {
     return NextResponse.json({ ok: false, error: "id obrigatório" }, { status: 400 });

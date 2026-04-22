@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdminApi, requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ async function loadEmp(id: string) {
 }
 
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const loaded = await loadEmp(id);
   if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error }, { status: loaded.status });
@@ -74,6 +77,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 }
 
 export async function GET(_req: Request, ctx: RouteCtx) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const loaded = await loadEmp(id);
   if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error }, { status: loaded.status });
@@ -91,6 +96,8 @@ export async function GET(_req: Request, ctx: RouteCtx) {
 }
 
 export async function DELETE(_req: Request, ctx: RouteCtx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const loaded = await loadEmp(id);
   if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error }, { status: loaded.status });

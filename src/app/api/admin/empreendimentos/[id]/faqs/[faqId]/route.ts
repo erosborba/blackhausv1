@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reindexEmpreendimento } from "@/lib/empreendimentos";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ const patchSchema = z
 
 /** PATCH /api/admin/empreendimentos/[id]/faqs/[faqId] — edita FAQ. */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id, faqId } = await ctx.params;
   const body = await req.json().catch(() => null);
   const parsed = patchSchema.safeParse(body);
@@ -52,6 +55,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
 /** DELETE /api/admin/empreendimentos/[id]/faqs/[faqId] — remove FAQ. */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id, faqId } = await ctx.params;
   const sb = supabaseAdmin();
   const { error } = await sb

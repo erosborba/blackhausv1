@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
   const search = req.nextUrl.searchParams.get("q");
   const sb = supabaseAdmin();
   const { data, error } = await sb.rpc("inbox_items", {

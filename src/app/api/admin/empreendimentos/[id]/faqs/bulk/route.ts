@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reindexEmpreendimento } from "@/lib/empreendimentos";
+import { requireAdminApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,8 @@ const bulkSchema = z.object({
  * estado do RAG fica garantido quando o usuário solta o botão.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const gate = await requireAdminApi();
+  if (gate instanceof NextResponse) return gate;
   const { id } = await ctx.params;
   const body = await req.json().catch(() => null);
   const parsed = bulkSchema.safeParse(body);

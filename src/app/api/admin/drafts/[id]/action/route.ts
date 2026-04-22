@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
 import { can } from "@/lib/auth/role";
-import { getCurrentRole } from "@/lib/auth/role-server";
+import { requireSessionApi } from "@/lib/auth/api-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,8 +28,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const role = await getCurrentRole();
-  if (!can(role, "revisao.approve")) {
+  const gate = await requireSessionApi();
+  if (gate instanceof NextResponse) return gate;
+  if (!can(gate.agent.role, "revisao.approve")) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 

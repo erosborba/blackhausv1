@@ -67,7 +67,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("apikey") ?? req.headers.get("x-webhook-secret");
   const validSecrets = [env.EVOLUTION_WEBHOOK_SECRET, env.EVOLUTION_API_KEY].filter(Boolean);
-  if (secretHeader && !validSecrets.includes(secretHeader)) {
+  if (!secretHeader || !validSecrets.includes(secretHeader)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 

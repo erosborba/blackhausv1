@@ -13,15 +13,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 export async function supabaseServer(): Promise<SupabaseClient> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY ausentes");
+  const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !publishable) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ausentes");
   }
 
   // `cookies()` é async no Next 15.
   const cookieStore = await cookies();
 
-  return createServerClient(url, anon, {
+  return createServerClient(url, publishable, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
