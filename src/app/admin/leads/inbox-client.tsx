@@ -191,7 +191,7 @@ export function InboxClient({ initial }: { initial: InboxItem[] }) {
         <h1 style={{ margin: 0, fontSize: 24 }}>Inbox</h1>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <Link
-            href="/admin/empreendimentos"
+            href="/empreendimentos"
             style={{ color: "#8f8f9a", textDecoration: "none", fontSize: 13 }}
           >
             Empreendimentos →

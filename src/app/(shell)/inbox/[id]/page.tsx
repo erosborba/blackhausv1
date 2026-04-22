@@ -2,9 +2,11 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { Topbar } from "@/components/shell/Topbar";
 import { PriorityRail } from "@/components/inbox/PriorityRail";
+import { InboxRail } from "@/components/inbox/Rail";
 import { ThreadView } from "@/components/inbox/ThreadView";
 import { ContextRail } from "@/components/inbox/ContextRail";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getAgentName, getTopEmpreendimentoFromMessages } from "@/lib/lead-context";
 import type { InboxItem, ThreadMessage } from "@/components/inbox/types";
 import type { Lead } from "@/lib/leads";
 import "@/components/inbox/inbox.css";
@@ -46,13 +48,26 @@ export default async function InboxThreadPage({
   const messages = ((msgsRes.data ?? []) as ThreadMessage[]).slice().reverse();
   const name = lead.full_name ?? lead.push_name ?? lead.phone;
 
+  // Enriquecimento pro ContextRail — paralelo, tolerante a falha.
+  const [agentName, topEmpreendimento] = await Promise.all([
+    getAgentName(lead.assigned_agent_id ?? null),
+    getTopEmpreendimentoFromMessages(lead.id),
+  ]);
+
   return (
     <>
       <Topbar crumbs={[{ label: "Inbox", href: "/inbox" }, { label: name }]} />
-      <div className="inbox-shell">
-        <PriorityRail activeId={id} initial={items} />
-        <ThreadView lead={lead} initialMessages={messages} />
-        <ContextRail lead={lead} />
+      <div className="inbox-wrap">
+        <InboxRail items={items} activeId={id} />
+        <div className="inbox-shell">
+          <PriorityRail activeId={id} initial={items} />
+          <ThreadView lead={lead} initialMessages={messages} />
+          <ContextRail
+            lead={lead}
+            agentName={agentName}
+            topEmpreendimento={topEmpreendimento}
+          />
+        </div>
       </div>
     </>
   );

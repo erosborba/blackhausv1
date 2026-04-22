@@ -1,51 +1,43 @@
-/* Shell — sidebar + topbar. Copia seletiva de project/hifi-dark/components.css. */
+/* Shell — sidebar + topbar (LIGHT theme, hifi 1:1). */
 
 /* === App grid === */
 .bh .app {
   display: grid;
-  grid-template-columns: 84px 1fr;
+  grid-template-columns: 68px 1fr;
   min-height: 100vh;
 }
 
 /* === Sidebar === */
 .bh .sidebar {
-  background: transparent;
+  background: var(--surface-3);
+  border-right: 1px solid var(--hairline);
   display: flex;
   flex-direction: column;
-  padding: 22px 16px;
+  padding: 16px 0;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   position: sticky;
   top: 0;
   height: 100vh;
   z-index: 10;
 }
 .bh .sidebar .logo {
-  width: 52px; height: 52px; border-radius: 16px;
-  background: linear-gradient(160deg, #3b82f6 0%, #1d4ed8 60%, #0b2a55 100%);
-  color: #fff; display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 22px; letter-spacing: -0.03em;
-  box-shadow:
-    -4px -4px 10px rgba(79, 116, 176, 0.25),
-    6px 6px 18px rgba(0, 3, 10, 0.85),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  margin-bottom: 14px;
-  position: relative;
+  width: 40px; height: 40px; border-radius: 11px;
+  background: linear-gradient(160deg, #1e3a8a, #0f1f4d);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; letter-spacing: -0.02em;
+  box-shadow: 0 0 0 1px rgba(17, 19, 28, 0.08);
+  margin-bottom: 10px;
   text-decoration: none;
 }
-.bh .sidebar .logo::after {
-  content: ""; position: absolute; inset: 6px; border-radius: 11px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 60%);
-  pointer-events: none;
-}
 .bh .side-item {
-  width: 48px; height: 48px; border-radius: 14px;
+  width: 44px; height: 44px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   color: var(--ink-3); cursor: pointer; position: relative;
-  background: var(--surface);
-  box-shadow: var(--sh-neu-sm);
-  border: 1px solid var(--hairline);
-  transition: all 120ms;
+  background: transparent;
+  border: none;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
   text-decoration: none;
 }
 .bh .side-item svg {
@@ -53,34 +45,35 @@
   stroke: currentColor; fill: none;
   stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
 }
-.bh .side-item:hover { color: var(--ink); }
-.bh .side-item.active {
-  color: var(--blue);
-  background: var(--surface-3);
-  box-shadow: var(--sh-in-sm);
+.bh .side-item:hover {
+  background: var(--bg-2);
+  color: var(--ink);
 }
-.bh .side-item.active::after {
+.bh .side-item.active {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+}
+.bh .side-item.active::before {
   content: "";
-  position: absolute; left: -12px; top: 14px; bottom: 14px; width: 3px;
+  position: absolute; left: -16px; top: 10px; bottom: 10px; width: 3px;
   border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, #5eead4, #4aa3ff);
-  box-shadow: 0 0 12px rgba(74, 163, 255, 0.7);
+  background: var(--blue);
 }
 .bh .side-item .badge {
-  position: absolute; top: -4px; right: -4px;
-  min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 9px;
-  background: linear-gradient(180deg, #ff8a6a, #e85a3a);
-  color: #fff; font-size: 10px; font-weight: 600;
+  position: absolute; top: 7px; right: 7px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 8px;
+  background: var(--hot);
+  color: #fff; font-size: 9.5px; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
-  border: 2px solid var(--bg);
-  box-shadow: 0 0 10px rgba(255, 122, 89, 0.45);
+  border: 2px solid var(--surface-3);
 }
 .bh .side-spacer { flex: 1; }
 
-/* === UserChip === */
+/* === UserChip (sidebar footer) === */
 .bh .sidebar-footer {
-  margin-top: 10px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,24 +82,25 @@
   position: relative;
 }
 .bh .user-chip {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  color: var(--ink-2);
-  font-size: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(160deg, #3b5bc9, #1e3a8a);
+  color: #fff;
+  font-size: 11px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  box-shadow: var(--sh-neu-sm);
-  transition: background 120ms ease, color 120ms ease;
+  box-shadow: inset 0 0 0 1px rgba(17, 19, 28, 0.15);
+  transition: filter 120ms ease;
   letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
 }
-.bh .user-chip:hover {
-  color: var(--ink);
-  background: var(--surface-2);
-}
+.bh .user-chip:hover { filter: brightness(1.08); }
 .bh .user-menu {
   position: absolute;
   left: calc(100% + 10px);
@@ -115,7 +109,7 @@
   background: var(--surface-2);
   border: 1px solid var(--hairline);
   border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--sh-pop);
   padding: 6px;
   z-index: 30;
 }
@@ -127,7 +121,7 @@
 .bh .user-menu-name {
   font-size: 13px;
   color: var(--ink);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.3;
 }
 .bh .user-menu-email {
@@ -144,6 +138,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-4);
+  font-family: var(--font-mono);
 }
 .bh .user-menu-item {
   display: block;
@@ -157,37 +152,38 @@
   padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background 120ms ease, color 120ms ease;
 }
 .bh .user-menu-item:hover {
-  background: var(--surface-3);
+  background: var(--bg-2);
   color: var(--ink);
 }
 
 /* === Top bar === */
 .bh .topbar {
-  height: 64px;
+  height: 52px;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(243, 241, 236, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex; align-items: center; gap: 14px;
-  padding: 14px 24px 14px 8px;
+  padding: 0 20px;
   position: sticky; top: 0; z-index: 20;
-  background: linear-gradient(180deg,
-    rgba(14, 22, 36, 0.88),
-    rgba(14, 22, 36, 0.6) 70%,
-    transparent);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
 }
-.bh .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
+.bh .crumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-3); }
 .bh .crumb strong { color: var(--ink); font-weight: 600; letter-spacing: -0.01em; }
 .bh .crumb .sep { color: var(--ink-5); }
 .bh .search {
-  display: flex; align-items: center; gap: 10px;
-  height: 40px; padding: 0 14px; border-radius: 12px;
-  background: var(--surface-3); box-shadow: var(--sh-in-sm);
-  color: var(--ink-3); font-size: 12.5px; min-width: 280px;
+  display: flex; align-items: center; gap: 8px;
+  height: 32px; padding: 0 12px; border-radius: 8px;
+  background: var(--surface);
   border: 1px solid var(--hairline);
+  color: var(--ink-3); font-size: 12.5px; min-width: 260px;
   cursor: pointer;
+  font-family: inherit;
+  transition: border-color 120ms ease;
 }
+.bh .search:hover { border-color: var(--hairline-2); }
 .bh .search .kbd { margin-left: auto; }
 
 /* === Page === */
@@ -196,9 +192,9 @@
 
 /* Banner "versão clássica" — temporário durante migração */
 .bh-legacy-banner {
-  background: linear-gradient(90deg, rgba(255, 200, 97, 0.14), rgba(255, 200, 97, 0.04));
-  border-bottom: 1px solid rgba(255, 200, 97, 0.28);
-  color: #ffe0a3;
+  background: linear-gradient(90deg, rgba(180, 119, 12, 0.12), rgba(180, 119, 12, 0.03));
+  border-bottom: 1px solid rgba(180, 119, 12, 0.22);
+  color: var(--warm);
   padding: 8px 20px;
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   font-size: 12.5px;
@@ -207,6 +203,6 @@
   gap: 10px;
   letter-spacing: -0.005em;
 }
-.bh-legacy-banner strong { font-weight: 600; color: #fff; }
-.bh-legacy-banner a { color: #8fc0ff; text-decoration: none; margin-left: auto; font-weight: 500; }
+.bh-legacy-banner strong { font-weight: 600; color: var(--ink); }
+.bh-legacy-banner a { color: var(--blue); text-decoration: none; margin-left: auto; font-weight: 500; }
 .bh-legacy-banner a:hover { text-decoration: underline; }

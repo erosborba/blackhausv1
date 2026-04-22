@@ -1,0 +1,1181 @@
+/* /empreendimentos — split-view dashboard (light theme + deep blue).
+ * Restaura arquitetura do dashboard antigo (dark+copper) repintada no tema atual.
+ */
+
+.bh .top-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--blue);
+  border: 1px solid var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 120ms, border-color 120ms;
+}
+.bh .top-cta:hover {
+  background: var(--blue-2);
+  border-color: var(--blue-2);
+}
+
+.bh .emp-dash {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/* === Sidebar ============================================================ */
+
+.bh .emp-side {
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-3);
+}
+
+.bh .emp-side-head {
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.bh .emp-side-title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.bh .emp-side-sub {
+  font-size: 11.5px;
+  color: var(--ink-4);
+  margin-top: 4px;
+}
+
+.bh .emp-side-search {
+  margin-top: 12px;
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.bh .emp-side-search::placeholder { color: var(--ink-4); }
+.bh .emp-side-search:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.12);
+}
+
+.bh .emp-side-list {
+  overflow-y: auto;
+  padding: 10px 8px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-height: 0;
+}
+
+.bh .emp-side-empty {
+  color: var(--ink-4);
+  font-size: 12px;
+  padding: 20px 10px;
+  text-align: center;
+}
+
+.bh .emp-side-item {
+  display: flex;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: background 120ms, border-color 120ms;
+}
+.bh .emp-side-item:hover { background: var(--surface); }
+.bh .emp-side-item.active {
+  background: var(--blue-tint);
+  border-color: rgba(30, 58, 138, 0.18);
+}
+
+.bh .emp-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(17, 19, 28, 0.06);
+}
+
+.bh .emp-side-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bh .emp-side-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bh .emp-side-loc {
+  font-size: 11px;
+  color: var(--ink-4);
+}
+
+.bh .emp-side-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 3px;
+}
+
+.bh .emp-side-count {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+}
+
+/* === Main pane ========================================================== */
+
+.bh .emp-main {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.bh .emp-empty-main {
+  padding: 60px 40px;
+  color: var(--ink-4);
+  text-align: center;
+  font-size: 14px;
+}
+
+/* === Cover hero ========================================================= */
+
+.bh .emp-cover {
+  height: 220px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  padding: 24px 28px;
+}
+
+.bh .emp-cover-fade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(17, 19, 28, 0) 0%, rgba(17, 19, 28, 0.55) 100%);
+  pointer-events: none;
+}
+
+.bh .emp-cover-content {
+  position: relative;
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.bh .emp-cover-title {
+  margin: 10px 0 6px;
+  font-size: 34px;
+  color: #fff;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  font-weight: 600;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+.bh .emp-cover-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.bh .emp-cover-meta .sep { color: rgba(255, 255, 255, 0.55); }
+
+.bh .emp-cover-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* === Banner (last change) =============================================== */
+
+.bh .emp-banner {
+  margin: 18px 28px 0;
+  padding: 10px 14px;
+  background: var(--ok-tint);
+  border: 1px solid rgba(21, 128, 61, 0.25);
+  border-radius: 10px;
+  color: var(--ok);
+  font-size: 13px;
+}
+
+/* === Grid of panels ===================================================== */
+
+.bh .emp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 22px 28px 32px;
+}
+
+.bh .emp-box {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 14px 16px;
+  min-width: 0;
+  box-shadow: var(--sh-card);
+}
+
+.bh .emp-box-wide {
+  grid-column: span 2;
+}
+
+.bh .emp-box-ai {
+  grid-column: span 2;
+  background: linear-gradient(135deg, var(--blue-tint), var(--surface));
+  border-color: rgba(30, 58, 138, 0.22);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: var(--sh-card);
+}
+
+.bh .emp-caps {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--ink-4);
+  margin-bottom: 12px;
+  display: block;
+  font-weight: 500;
+}
+
+.bh .emp-caps-inline {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--ink-4);
+  font-weight: 500;
+}
+
+/* === KV rows (visão geral) ============================================== */
+
+.bh .emp-kv {
+  display: flex;
+  flex-direction: column;
+}
+
+.bh .emp-kv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+.bh .emp-kv-row:last-child { border-bottom: none; margin-bottom: 0; }
+.bh .emp-kv-row.hi { color: var(--blue-deep); }
+.bh .emp-kv-row .k { color: var(--ink-3); }
+.bh .emp-kv-row .v { font-variant-numeric: tabular-nums; }
+.bh .emp-kv-row .v.truncate {
+  max-width: 60%;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* === Tipologias with SVG planta ========================================= */
+
+.bh .emp-typs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.bh .emp-typ {
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.bh .emp-typ-svg {
+  height: 60px;
+  margin-bottom: 8px;
+}
+
+.bh .emp-typ-svg rect,
+.bh .emp-typ-svg line {
+  stroke: var(--blue);
+}
+
+.bh .emp-typ-name {
+  font-size: 11.5px;
+  color: var(--ink);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.bh .emp-typ-meta {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+}
+
+/* === Diferenciais ======================================================= */
+
+.bh .emp-dif-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+}
+
+.bh .emp-dif-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.bh .emp-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+/* === Base de IA box ===================================================== */
+
+.bh .emp-ai-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.bh .emp-ai-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--blue-deep);
+  font-weight: 600;
+}
+
+.bh .emp-ai-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--blue);
+  box-shadow: 0 0 8px rgba(30, 58, 138, 0.5);
+}
+
+.bh .emp-ai-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bh .emp-ai-desc {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+.bh .emp-ai-desc strong {
+  color: var(--blue-deep);
+  font-weight: 600;
+}
+
+.bh .emp-ai-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(30, 58, 138, 0.2);
+}
+
+.bh .emp-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bh .emp-stat-n {
+  font-size: 20px;
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-family: var(--font-mono);
+}
+
+.bh .emp-stat-l {
+  font-size: 10.5px;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.bh .emp-ai-gaps {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(30, 58, 138, 0.2);
+}
+
+.bh .emp-ai-gaps-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--ink-4);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.bh .emp-gaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bh .emp-gap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.bh .emp-gap .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.bh .emp-gap.sev-high {
+  color: var(--hot);
+  background: var(--hot-tint);
+  border-color: rgba(194, 65, 12, 0.3);
+}
+.bh .emp-gap.sev-medium {
+  color: var(--warm);
+  background: var(--warm-tint);
+  border-color: rgba(180, 119, 12, 0.3);
+}
+.bh .emp-gap.sev-low {
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-color: var(--hairline-2);
+}
+
+/* === Descrição ========================================================== */
+
+.bh .emp-desc {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* === Materiais ========================================================== */
+
+.bh .emp-midias {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 4px;
+}
+
+.bh .emp-midia {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 7px;
+  transition: background 100ms;
+}
+.bh .emp-midia:hover { background: var(--surface-2); }
+
+.bh .emp-midia a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.bh .emp-midia-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--blue-tint);
+  color: var(--blue-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.bh .emp-midia-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bh .emp-midia-size {
+  font-size: 10.5px;
+  color: var(--ink-4);
+}
+
+/* === FAQ ================================================================ */
+
+.bh .emp-faq-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bh .emp-faq-head-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bh .emp-faq-head-sub {
+  font-size: 11px;
+  color: var(--ink-4);
+}
+
+.bh .emp-faq-empty {
+  color: var(--ink-4);
+  font-size: 12px;
+}
+
+.bh .emp-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bh .emp-faq-item {
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.bh .emp-faq-item-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.bh .emp-faq-q {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.bh .emp-faq-a {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.bh .emp-faq-source {
+  margin-top: 6px;
+  display: inline-block;
+}
+
+.bh .emp-faq-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bh .emp-faq-item.editing {
+  background: var(--bg-2);
+  border-color: var(--hairline-2);
+}
+
+.bh .emp-faq-add {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed var(--hairline-2);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bh .emp-faq-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* FAQ suggest panel */
+
+.bh .emp-sug {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(30, 58, 138, 0.25);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--blue-tint), rgba(231, 236, 248, 0.3));
+}
+
+.bh .emp-sug-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bh .emp-sug-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--blue-deep);
+  font-weight: 600;
+}
+
+.bh .emp-sug-sub {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.bh .emp-sug-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bh .emp-sug-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-2);
+}
+.bh .emp-sug-item.on {
+  border-color: rgba(30, 58, 138, 0.25);
+}
+.bh .emp-sug-item.off {
+  opacity: 0.55;
+}
+
+.bh .emp-sug-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bh .emp-sug-check {
+  margin-top: 3px;
+  accent-color: var(--blue);
+  flex-shrink: 0;
+}
+
+.bh .emp-sug-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* === Inputs (shared) ==================================================== */
+
+.bh .emp-input,
+.bh .emp-textarea {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--ink);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  width: 100%;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.bh .emp-input:focus,
+.bh .emp-textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.12);
+}
+.bh .emp-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.bh .emp-input.bold { font-weight: 500; }
+
+/* === Chips/status ======================================================= */
+
+.bh .emp-chip {
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.bh .emp-chip.status-lancamento {
+  background: var(--blue-tint);
+  color: var(--blue-deep);
+  border-color: rgba(30, 58, 138, 0.2);
+}
+.bh .emp-chip.status-em_obras {
+  background: var(--warm-tint);
+  color: var(--warm);
+  border-color: rgba(180, 119, 12, 0.25);
+}
+.bh .emp-chip.status-pronto_para_morar {
+  background: var(--ok-tint);
+  color: var(--ok);
+  border-color: rgba(21, 128, 61, 0.25);
+}
+.bh .emp-chip.status-none {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  border-color: var(--hairline-2);
+}
+
+.bh .emp-chip.ai-source {
+  background: var(--blue-tint);
+  color: var(--blue-deep);
+  border-color: rgba(30, 58, 138, 0.2);
+}
+
+.bh .emp-chip.ok-soft {
+  background: var(--ok-tint);
+  color: var(--ok);
+  border-color: rgba(21, 128, 61, 0.2);
+}
+
+/* Cover chip overrides — on dark backdrop */
+.bh .emp-cover .emp-chip {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(6px);
+}
+
+/* === Buttons ============================================================ */
+
+.bh .emp-btn {
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--hairline-2);
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.bh .emp-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.bh .emp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bh .emp-btn.primary {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.bh .emp-btn.primary:hover {
+  background: var(--blue-2);
+  border-color: var(--blue-2);
+  color: #fff;
+}
+
+.bh .emp-btn.ai {
+  background: var(--blue-tint);
+  color: var(--blue-deep);
+  border-color: rgba(30, 58, 138, 0.3);
+}
+.bh .emp-btn.ai:hover {
+  background: var(--blue-tint-2);
+  border-color: var(--blue);
+  color: var(--blue-deep);
+}
+
+.bh .emp-btn.danger {
+  color: var(--hot);
+  border-color: rgba(194, 65, 12, 0.35);
+}
+.bh .emp-btn.danger:hover {
+  background: var(--hot-tint);
+  border-color: var(--hot);
+  color: var(--hot);
+}
+
+.bh .emp-btn.sm {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+/* On cover (over gradient) */
+.bh .emp-cover .emp-btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);
+}
+.bh .emp-cover .emp-btn:hover {
+  background: #fff;
+  color: var(--blue);
+  border-color: #fff;
+}
+.bh .emp-cover .emp-btn.ai {
+  background: rgba(30, 58, 138, 0.85);
+  color: #fff;
+  border-color: rgba(30, 58, 138, 0.9);
+}
+.bh .emp-cover .emp-btn.ai:hover {
+  background: var(--blue-deep);
+  color: #fff;
+  border-color: var(--blue-deep);
+}
+.bh .emp-cover .emp-btn.danger {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--hot);
+}
+.bh .emp-cover .emp-btn.danger:hover {
+  background: var(--hot-tint);
+  color: var(--hot);
+}
+
+.bh .emp-btn-reindex {
+  background: transparent;
+  border: 1px solid rgba(30, 58, 138, 0.3);
+  color: var(--blue-deep);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms, border-color 120ms;
+}
+.bh .emp-btn-reindex:hover {
+  background: var(--blue-tint);
+  border-color: var(--blue);
+}
+.bh .emp-btn-reindex:disabled { opacity: 0.6; cursor: wait; }
+
+.bh .emp-icon-btn {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--ink-3);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.bh .emp-icon-btn:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.bh .emp-icon-btn.danger { color: var(--hot); }
+.bh .emp-icon-btn.danger:hover {
+  background: var(--hot-tint);
+  border-color: rgba(194, 65, 12, 0.3);
+}
+
+/* === Cover gradient helper (light pastel) ============================== */
+/* cores são setadas via --h1/--h2 inline style; fallback neutro. */
+.bh .emp-cover-gradient,
+.bh .emp-thumb-gradient {
+  background: linear-gradient(135deg, var(--_g1, #d8dbe6), var(--_g2, #a8b0c4));
+}
+
+/* === Responsive ========================================================= */
+
+@media (max-width: 1100px) {
+  .bh .emp-dash {
+    grid-template-columns: 260px 1fr;
+  }
+  .bh .emp-grid {
+    padding: 18px 20px 28px;
+  }
+}
+
+@media (max-width: 860px) {
+  .bh .emp-dash {
+    grid-template-columns: 1fr;
+  }
+  .bh .emp-side {
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .bh .emp-grid {
+    grid-template-columns: 1fr;
+  }
+  .bh .emp-box-wide,
+  .bh .emp-box-ai {
+    grid-column: span 1;
+  }
+  .bh .emp-cover { height: 180px; padding: 20px; }
+  .bh .emp-cover-title { font-size: 26px; }
+}
+
+/* ── Booking digital ───────────────────────────────────────────── */
+.bh .emp-booking-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.bh .emp-booking-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.bh .emp-booking-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.bh .emp-booking-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+.bh .emp-booking-link:hover {
+  border-color: var(--blue);
+}
+.bh .emp-booking-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bh .emp-booking-preview {
+  color: var(--blue);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* ── Fotos ─────────────────────────────────────────────────────── */
+.bh .emp-photos-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.bh .emp-photos-upload {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: center;
+}
+.bh .emp-select {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ink);
+  font-family: inherit;
+}
+.bh .emp-photos-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.bh .emp-chip.filter {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--ink-2);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+}
+.bh .emp-chip.filter:hover {
+  border-color: var(--blue);
+  color: var(--ink);
+}
+.bh .emp-chip.filter.active {
+  background: var(--blue-tint);
+  border-color: var(--blue);
+  color: var(--blue-deep);
+}
+.bh .emp-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.bh .emp-photo-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.bh .emp-photo-card:hover {
+  border-color: var(--blue);
+}
+.bh .emp-photo-link {
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--bg);
+}
+.bh .emp-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bh .emp-photo-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--hairline);
+}
+.bh .emp-photo-cat,
+.bh .emp-photo-cat-static {
+  font-size: 11px;
+  color: var(--ink-2);
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.bh .emp-photo-cat-static {
+  cursor: default;
+}
+.bh .emp-photo-cat:hover {
+  color: var(--blue-deep);
+}
+.bh .emp-photo-caption {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-top: 1px solid var(--hairline);
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+  color: var(--ink-2);
+  font-family: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bh .emp-photo-caption:hover:not(:disabled) {
+  color: var(--ink);
+}
+.bh .emp-photo-caption:disabled {
+  cursor: default;
+}
+.bh .emp-photo-caption-edit {
+  padding: 4px 6px;
+  border-top: 1px solid var(--hairline);
+}
+.bh .emp-photo-caption-edit .emp-input {
+  width: 100%;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+@media (max-width: 860px) {
+  .bh .emp-photos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}

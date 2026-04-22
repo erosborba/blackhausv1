@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
     status: string;
     handoff_urgency: string | null;
     handoff_notified_at: string | null;
+    handoff_resolved_at: string | null;
     bridge_active: boolean | null;
     [k: string]: unknown;
   }>;
@@ -67,7 +68,10 @@ export async function GET(req: NextRequest) {
 
   if (hasHandoff === "1") {
     rows = rows.filter(
-      (r) => r.handoff_notified_at !== null && r.bridge_active !== true,
+      (r) =>
+        r.handoff_notified_at !== null &&
+        r.bridge_active !== true &&
+        !r.handoff_resolved_at,
     );
   }
 

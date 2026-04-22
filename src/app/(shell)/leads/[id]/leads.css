@@ -1,0 +1,284 @@
+/* /leads/[id] — perfil completo. Light theme flat; escopado em .bh. */
+
+.bh .lead-page {
+  padding: 20px;
+}
+
+.bh .lead-wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* === Hero === */
+.bh .lead-hero {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  box-shadow: var(--sh-card);
+  flex-wrap: wrap;
+}
+.bh .lead-hero-main {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+.bh .lead-hero-who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.bh .lead-hero-who h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.bh .lead-hero-sub {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.bh .lead-hero-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* === Grid === */
+.bh .lead-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .bh .lead-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bh .lead-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* === Cards === */
+.bh .lead-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: var(--sh-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.bh .lead-card-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 500;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.bh .lead-card-title .hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 400;
+}
+.bh .lead-card-warn {
+  border-color: rgba(194, 110, 12, 0.25);
+  background: linear-gradient(180deg, #fcf3dc, #f5e3ba);
+}
+.bh .lead-card-meta {
+  background: transparent;
+  border: 1px dashed var(--hairline);
+  box-shadow: none;
+}
+
+/* === Radar === */
+.bh .lead-radar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.bh .lead-radar-num .num {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.bh .lead-radar-num .slash {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--ink-4);
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+.bh .lead-radar-meter {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.bh .lead-radar-meter .mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* === Brief & Notes === */
+.bh .lead-brief {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+.bh .lead-notes {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+
+/* === Key-value === */
+.bh .lead-kv {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bh .lead-kv-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 12.5px;
+}
+.bh .lead-kv-row:last-child {
+  border-bottom: none;
+}
+.bh .lead-kv-row dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  margin: 0;
+  align-self: center;
+}
+.bh .lead-kv-row dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 500;
+  word-break: break-word;
+}
+.bh .lead-kv-row dd.mono,
+.bh .lead-kv-row dd .mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.bh .lead-kv-row dd .small,
+.bh .lead-kv-row dd.small {
+  font-size: 11px;
+}
+
+/* === Handoff card === */
+.bh .lead-handoff {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ink);
+}
+.bh .lead-handoff .emoji {
+  font-size: 18px;
+}
+.bh .lead-handoff .muted {
+  color: var(--ink-4);
+  font-size: 12px;
+}
+
+/* === Actions === */
+.bh .lead-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bh .lead-actions .btn {
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* === Empty === */
+.bh .lead-empty {
+  font-size: 12.5px;
+  color: var(--ink-4);
+  line-height: 1.5;
+  padding: 4px 0;
+}
+
+/* === Timeline (reuso do Timeline component) === */
+.bh .lead-card .timeline-ev {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.bh .lead-card .timeline-ev .dot {
+  margin-top: 5px;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: var(--ink-4);
+  border-radius: 50%;
+}
+.bh .lead-card .timeline-ev .kind {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+.bh .lead-card .timeline-ev .payload {
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+.bh .lead-card .timeline-ev .at {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}

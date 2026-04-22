@@ -7,7 +7,7 @@ import type { NavItem } from "./nav";
 import { SideIcon } from "./SideIcon";
 
 /**
- * Sidebar vertical 84px — logo + itens neumórficos.
+ * Sidebar vertical 68px — logo + itens neumórficos (light theme).
  * Items recebidos já vêm filtrados por role (server).
  * `footer` é renderizado no rodapé (UserChip etc).
  */

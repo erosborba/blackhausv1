@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { Topbar } from "@/components/shell/Topbar";
 import { PriorityRail } from "@/components/inbox/PriorityRail";
+import { InboxRail } from "@/components/inbox/Rail";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { InboxItem } from "@/components/inbox/types";
@@ -14,7 +15,6 @@ export default async function InboxPage() {
   const role = agent?.role ?? "admin";
   if (role !== "admin" && role !== "corretor") redirect("/brief");
 
-  // Corretor só vê leads atribuídos a ele (filtro no RPC).
   const sb = supabaseAdmin();
   const { data } = await sb.rpc("inbox_items", {
     search_text: null,
@@ -25,14 +25,17 @@ export default async function InboxPage() {
   return (
     <>
       <Topbar crumbs={[{ label: "Inbox" }]} />
-      <div className="inbox-shell two-col">
-        <PriorityRail activeId={null} initial={items} />
-        <main style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <EmptyState
-            title="Escolha uma conversa"
-            hint="Use ⌘K pra buscar por nome ou telefone."
-          />
-        </main>
+      <div className="inbox-wrap">
+        <InboxRail items={items} activeId={null} />
+        <div className="inbox-shell two-col">
+          <PriorityRail activeId={null} initial={items} />
+          <main className="pane inbox-empty">
+            <EmptyState
+              title="Escolha uma conversa"
+              hint="Use ⌘K pra buscar por nome ou telefone."
+            />
+          </main>
+        </div>
       </div>
     </>
   );

@@ -43,6 +43,7 @@ export type Lead = {
   assigned_agent_id?: string | null;
   bridge_active?: boolean;
   handoff_notified_at?: string | null;
+  handoff_resolved_at?: string | null;
   handoff_attempts?: number;
   memory?: string | null;
   memory_updated_at?: string | null;

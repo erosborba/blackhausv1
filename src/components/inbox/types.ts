@@ -17,6 +17,7 @@ export type InboxItem = {
   handoff_reason: HandoffReason | null;
   handoff_urgency: HandoffUrgency | null;
   handoff_notified_at: string | null;
+  handoff_resolved_at: string | null;
   bridge_active: boolean | null;
   score: number;
   score_updated_at: string | null;

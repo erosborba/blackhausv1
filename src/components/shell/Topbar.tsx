@@ -7,7 +7,7 @@ import { OrbChip } from "@/components/ui/Orb";
 export type Crumb = { label: string; href?: string };
 
 /**
- * Topbar 64px com blur — crumbs + search ⌘K + slot direito (chips/ações).
+ * Topbar 52px com blur — crumbs + search ⌘K + slot direito (chips/ações).
  *
  * O callback `onSearchOpen` vai subir pro AppShell quando CommandPalette
  * for ligada (Phase 1). Por enquanto é noop.

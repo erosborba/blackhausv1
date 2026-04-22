@@ -33,7 +33,7 @@ export default async function Page() {
 
       <nav style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
         <a href="/admin/leads" style={navBtn}>Inbox</a>
-        <a href="/admin/empreendimentos" style={navBtn}>Empreendimentos</a>
+        <a href="/empreendimentos" style={navBtn}>Empreendimentos</a>
         <a href="/admin/empreendimentos/new" style={navBtn}>+ Novo empreendimento</a>
         <a href="/admin/drafts" style={navBtn}>Drafts</a>
         <a href="/admin/follow-ups" style={navBtn}>Follow-ups</a>

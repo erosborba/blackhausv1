@@ -60,6 +60,7 @@ export async function getPanorama(): Promise<{
     last_message_at: string | null;
     last_message_content: string | null;
     handoff_notified_at: string | null;
+    handoff_resolved_at: string | null;
     handoff_reason: string | null;
     handoff_urgency: "alta" | "media" | "baixa" | null;
     bridge_active: boolean | null;
@@ -79,7 +80,10 @@ export async function getPanorama(): Promise<{
   ).length;
 
   const handoff_pendente = rows.filter(
-    (r) => r.handoff_notified_at !== null && r.bridge_active !== true,
+    (r) =>
+      r.handoff_notified_at !== null &&
+      r.bridge_active !== true &&
+      !r.handoff_resolved_at,
   ).length;
 
   const leads_quentes = rows.filter((r) => (r.score ?? 0) >= 80).length;
@@ -99,7 +103,9 @@ export async function getPanorama(): Promise<{
   const classified = rows
     .map((r): ActionItem & { _rank: number } => {
       const pending =
-        r.handoff_notified_at !== null && r.bridge_active !== true;
+        r.handoff_notified_at !== null &&
+        r.bridge_active !== true &&
+        !r.handoff_resolved_at;
       const isHot = (r.score ?? 0) >= 80;
       const isFu = followUpLeadIds.has(r.id);
       const isNew =

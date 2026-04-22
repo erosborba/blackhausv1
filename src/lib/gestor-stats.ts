@@ -110,6 +110,7 @@ export async function loadGestorStats(windowDays: GestorWindow = 30): Promise<Ge
     score: number;
     last_message_at: string | null;
     handoff_notified_at: string | null;
+    handoff_resolved_at: string | null;
     bridge_active: boolean | null;
   }>;
 
@@ -176,7 +177,10 @@ export async function loadGestorStats(windowDays: GestorWindow = 30): Promise<Ge
   // Alertas ----------------------------------------------------------------
   const alerts: Alert[] = [];
   const pendingHandoff = inbox.filter(
-    (r) => r.handoff_notified_at !== null && r.bridge_active !== true,
+    (r) =>
+      r.handoff_notified_at !== null &&
+      r.bridge_active !== true &&
+      !r.handoff_resolved_at,
   ).length;
   if (pendingHandoff >= 5) {
     alerts.push({
