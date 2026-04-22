@@ -175,11 +175,16 @@ async function callElevenLabs(args: {
   voiceId: string;
   model: string;
 }): Promise<Buffer> {
+  const apiKey = env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    throw new Error("ELEVENLABS_API_KEY não configurada");
+  }
+
   const url = `${API_BASE}/text-to-speech/${encodeURIComponent(args.voiceId)}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      "xi-api-key": env.ELEVENLABS_API_KEY,
+      "xi-api-key": apiKey,
       "Content-Type": "application/json",
       Accept: "audio/mpeg",
     },

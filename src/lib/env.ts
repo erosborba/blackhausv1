@@ -14,7 +14,9 @@ const schema = z.object({
   // ElevenLabs TTS (Vanguard · Track 4). Voice ID default é uma voz PT-BR
   // feminina calibrada pra tom SDR ("Luna"). Trocar via env quando for
   // mapear por empreendimento/identidade do agente.
-  ELEVENLABS_API_KEY: z.string().min(1),
+  // TTS é opcional em alguns ambientes e faz fallback pra texto quando a
+  // chave não existe; por isso validamos a presença só no momento do uso.
+  ELEVENLABS_API_KEY: z.string().min(1).optional(),
   ELEVENLABS_VOICE_ID: z.string().default("aBaVz2FTZkqVNXrDkzMV"),
   ELEVENLABS_MODEL: z.string().default("eleven_turbo_v2_5"),
 
