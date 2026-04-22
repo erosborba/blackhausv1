@@ -48,12 +48,17 @@ export function Bubble({ m }: { m: ThreadMessage }) {
   const pending = m.id.startsWith("optim-");
 
   // Áudios outbound da Bia (Slice 4.5) têm media_path
-  // `tts-cache/<hash>.mp3` — são servíveis pelo endpoint determinístico.
-  // Áudios inbound do lead (bucket messages-media) continuam só com o
-  // MediaTag estático (player deles é legacy no /admin/leads/[id]).
+  // `tts-cache/<hash>.mp3` — servíveis via `/api/tts/play` (endpoint
+  // determinístico, blob imutável).
+  // Áudios inbound do lead moram em `messages-media` bucket com path
+  // `audio/<id>.ogg` — servíveis via `/api/media/play`.
   const ttsKey =
     m.media_type === "audio" && m.direction === "outbound"
       ? extractTtsKey(m.media_path)
+      : null;
+  const inboundAudioPath =
+    m.media_type === "audio" && m.direction === "inbound" && m.media_path
+      ? m.media_path
       : null;
 
   return (
@@ -65,6 +70,8 @@ export function Bubble({ m }: { m: ThreadMessage }) {
         <div className="who">{whoLabel(variant)}</div>
         {ttsKey ? (
           <TtsPlayer ttsKey={ttsKey} />
+        ) : inboundAudioPath ? (
+          <InboundAudioPlayer path={inboundAudioPath} durationMs={m.media_duration_ms} />
         ) : m.media_type ? (
           <MediaTag kind={m.media_type} />
         ) : null}
@@ -107,6 +114,43 @@ function TtsPlayer({ ttsKey }: { ttsKey: string }) {
         controls
         preload="none"
         src={`/api/tts/play?key=${ttsKey}`}
+        style={{
+          width: "100%",
+          maxWidth: 280,
+          height: 32,
+          display: "block",
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Player pro áudio que o lead mandou. Streama direto do bucket
+ * `messages-media` via `/api/media/play` — sem signed URL round-trip.
+ *
+ * O `content` do bubble abaixo já vem com a transcrição do Whisper, então
+ * o corretor pode ler sem escutar. Mostramos a duração quando o webhook
+ * populou (Evolution nem sempre manda), ajuda o corretor a decidir se
+ * vale a pena botar no fone.
+ */
+function InboundAudioPlayer({
+  path,
+  durationMs,
+}: {
+  path: string;
+  durationMs: number | null;
+}) {
+  const sec = durationMs ? Math.max(1, Math.round(durationMs / 1000)) : null;
+  return (
+    <div className="media-tag" style={{ marginBottom: 6 }}>
+      <div style={{ marginBottom: 4 }}>
+        🎙 áudio do lead{sec ? ` · ${sec}s` : ""}
+      </div>
+      <audio
+        controls
+        preload="none"
+        src={`/api/media/play?path=${encodeURIComponent(path)}`}
         style={{
           width: "100%",
           maxWidth: 280,
