@@ -115,12 +115,27 @@ export async function uploadMedia(args: {
 }): Promise<string> {
   const ext = extFromMime(args.mime, args.type);
   const path = `${args.type}/${args.messageId}.${ext}`;
+  // WhatsApp voice notes chegam como `audio/ogg; codecs=opus` —
+  // Supabase compara `allowed_mime_types` com string exata, então
+  // o suffix `; codecs=...` faz upload rejeitar. Normalizamos pra
+  // o mime base (`audio/ogg`) que tá no whitelist do bucket.
+  // Mantemos o mime original em `messages.media_mime` pra auditoria.
+  const contentType = stripMimeParams(args.mime);
   const sb = supabaseAdmin();
   const { error } = await sb.storage
     .from(BUCKET)
-    .upload(path, args.buffer, { contentType: args.mime, upsert: true });
+    .upload(path, args.buffer, { contentType, upsert: true });
   if (error) throw new Error(`upload ${path} falhou: ${error.message}`);
   return path;
+}
+
+/**
+ * Remove params do MIME (`; charset=...`, `; codecs=...`). Matching de
+ * whitelist no Supabase é substring-exato; params quebram validação.
+ */
+function stripMimeParams(mime: string): string {
+  const semi = mime.indexOf(";");
+  return (semi >= 0 ? mime.slice(0, semi) : mime).trim().toLowerCase();
 }
 
 /**
