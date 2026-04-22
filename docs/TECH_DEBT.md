@@ -1,6 +1,6 @@
 # Débitos técnicos + roadmap pendente
 
-Última atualização: 2026-04-22
+Última atualização: 2026-04-22 (auditoria de UX do shell — onda 3 pendente)
 
 Documento vivo. Quando resolver um item, marque `[x]` e deixe a data.
 Quando adicionar novo débito, inclua file:linha pra ficar rastreável.
@@ -77,6 +77,26 @@ Quando adicionar novo débito, inclua file:linha pra ficar rastreável.
   **Solução**: extrair design tokens (cores, spacing, radius) pra um `theme.ts`
   e criar `<Chip>`, `<Badge>`, `<Card>` como components. Tailwind é overkill
   pro tamanho — CSS modules basta.
+
+- [ ] **Shell UX onda 3 — polimento pendente.** Ondas 1 (inbox hoist) e 2
+  (tabs client-state em revisao/agenda) fecharam o skeleton-flash principal.
+  Faltou:
+  - `/ajustes` ainda faz SSR roundtrip ao trocar de aba porque cada aba
+    tem fetch server-only (`copilotStats`, `cleanupSnapshot`). Opções: (a)
+    eager-load os 5 datasets no primeiro SSR (custo baixo hoje), (b) mover
+    tabs pra `<Suspense key={tab}>` com fallback scoped só no body.
+  - `/gestor/funnel`, `/gestor/health`, `/gestor/rag-gaps` são segmentos
+    separados — troca dispara `loading.tsx` (inexistente hoje, mas flash
+    de blank area). Consolidar num único segmento com tabs client ou
+    aceitar que são "páginas distintas".
+  - Nenhum `<Link prefetch>` foi adicionado nas rails de `/inbox`. Prefetch
+    on-hover reduziria TTFB da thread em ~300-500ms.
+  - Páginas com tolerância de stale ≤10s (`/gestor`, `/pipeline`,
+    `/empreendimentos`) continuam com `dynamic = "force-dynamic"`. Vale
+    benchmarkar migrar pra `revalidate = 10`.
+  - `pipeline/loading.tsx`, `brief/loading.tsx`, `leads/[id]/loading.tsx`
+    ainda cobrem página inteira — OK pra first-load standalone, mas se um
+    dia virarem master-detail, aplicar o padrão do inbox.
 
 - [ ] **Vídeo não consumido.** Bia responde "recebi seu vídeo mas ainda não
   consigo assistir" e segue. Áudio e imagem já são multimodais.
