@@ -76,6 +76,11 @@ async function setWebhook(target) {
     process.exit(1);
   }
   const full = `${target}/api/webhook/evolution`;
+  const webhookSecret = env.EVOLUTION_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("[webhook] faltando EVOLUTION_WEBHOOK_SECRET no .env.local — sem ele o webhook vai cair em 401.");
+    process.exit(1);
+  }
   const payload = {
     webhook: {
       enabled: true,
@@ -83,6 +88,9 @@ async function setWebhook(target) {
       byEvents: false,
       base64: false,
       events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
+      headers: {
+        apikey: webhookSecret,
+      },
     },
   };
   console.log(`[webhook] setando pra: ${full}`);
