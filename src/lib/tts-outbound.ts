@@ -45,6 +45,14 @@ export type OutboundReplyResult = {
   reason: string;
   /** true quando houve intenção de áudio mas caiu pra texto (falha TTS/envio). */
   fellBack: boolean;
+  /**
+   * Caminho canônico pro blob cacheado, quando `modality === "audio"`.
+   * Formato: `tts-cache/<sha256>.mp3` — prefixado com o nome do bucket
+   * pra que o `Bubble.tsx` saiba distinguir de áudios inbound (que vivem
+   * no bucket `messages-media`). Usado pela UI do /inbox em Slice 4.5
+   * pra re-servir o mp3 via `/api/tts/play?key=<hash>`.
+   */
+  mediaPath?: string | null;
 };
 
 /**
@@ -101,7 +109,7 @@ export async function sendOutboundReply(
   sendPresence(input.to, "recording").catch(() => {});
 
   try {
-    const { buffer, cacheHit } = await synthesize({
+    const { buffer, cacheHit, cacheKey } = await synthesize({
       text: input.text,
       leadId: input.leadId,
     });
@@ -115,6 +123,10 @@ export async function sendOutboundReply(
       modality: "audio",
       reason: cacheHit ? "audio_cache_hit" : "audio_synth",
       fellBack: false,
+      // Cache é determinístico (hash voice+model+text): enquanto o blob
+      // estiver no bucket, qualquer um consegue re-stream. Gravar o path
+      // dispensa re-sintetizar na UI.
+      mediaPath: `tts-cache/${cacheKey}.mp3`,
     };
   } catch (e) {
     // 6) Fallback: TTS ou sendAudio quebrou. Cai elegante pra texto.

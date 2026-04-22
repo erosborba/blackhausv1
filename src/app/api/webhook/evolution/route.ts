@@ -342,6 +342,10 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
       sources: sources.length > 0 ? sources : null,
       mediaType: outbound.modality === "audio" ? "audio" : null,
       mediaMime: outbound.modality === "audio" ? "audio/mpeg" : null,
+      // `mediaPath` em formato `tts-cache/<hash>.mp3` (Slice 4.5) —
+      // UI do /inbox detecta o prefixo e re-streama via /api/tts/play
+      // em vez de gerar signed URL no bucket `messages-media`.
+      mediaPath: outbound.mediaPath ?? null,
     });
   }
 

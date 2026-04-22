@@ -590,9 +590,20 @@ endereços). Dupla condição: preferência do lead **E** content-shape OK.
 - `/ajustes` ganha grupo "Voz (TTS)" com `tts_enabled` + cap USD
 - Fallback herdado de 4.3 (fail-soft pra sendText em qualquer falha)
 
-### [ ] 4.5 · UI /inbox — bubble de áudio outbound
+### [x] 4.5 · UI /inbox — bubble de áudio outbound
 - Player inline + transcript pra corretor ler
 - DoD: corretor escuta no inbox o que lead escutou
+- `sendOutboundReply` devolve `mediaPath` (format `tts-cache/<hash>.mp3`)
+  quando áudio foi usado; webhook grava em `messages.media_path`
+- `/api/tts/play?key=<sha256>` streama do bucket `tts-cache` com
+  `Cache-Control: public, max-age=86400, immutable` (hash = conteúdo,
+  blob imutável) e `Accept-Ranges: bytes`
+- Regex `^[a-f0-9]{64}$` na key bloqueia path traversal; 404 em miss
+- `Bubble.tsx` detecta prefixo `tts-cache/` no `media_path` do outbound
+  e renderiza `<audio controls preload="none">` + transcript visível
+  (content permanece no bubble — corretor pode ler sem escutar)
+- Áudios inbound do lead continuam com MediaTag estático (bucket
+  separado `messages-media`, player legacy em /admin)
 
 ---
 
