@@ -16,7 +16,7 @@ import { supabaseAdmin } from "./supabase";
 // Tasks e providers
 // ---------------------------------------------------------------------------
 
-export type Provider = "anthropic" | "openai";
+export type Provider = "anthropic" | "openai" | "elevenlabs";
 
 /**
  * Tasks canônicas. Mantém como union string aqui pra IDE autocompletar,
@@ -35,7 +35,8 @@ export type AiTask =
   | "followup_message"   // Haiku gerando mensagem de nurturing
   | "audio_transcribe"   // OpenAI Whisper transcrevendo áudio do lead
   | "image_vision"       // Claude vision descrevendo imagem do lead
-  | "context_compact";   // Haiku resumindo turnos antigos no grafo SDR
+  | "context_compact"    // Haiku resumindo turnos antigos no grafo SDR
+  | "tts_synthesize";    // ElevenLabs gerando mp3 da resposta da Bia
 
 // ---------------------------------------------------------------------------
 // Pricing table (USD por 1M tokens)

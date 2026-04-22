@@ -11,6 +11,13 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
 
+  // ElevenLabs TTS (Vanguard · Track 4). Voice ID default é uma voz PT-BR
+  // feminina calibrada pra tom SDR ("Luna"). Trocar via env quando for
+  // mapear por empreendimento/identidade do agente.
+  ELEVENLABS_API_KEY: z.string().min(1),
+  ELEVENLABS_VOICE_ID: z.string().default("aBaVz2FTZkqVNXrDkzMV"),
+  ELEVENLABS_MODEL: z.string().default("eleven_turbo_v2_5"),
+
   EVOLUTION_BASE_URL: z.string().url(),
   EVOLUTION_API_KEY: z.string().min(1),
   EVOLUTION_INSTANCE: z.string().min(1),
