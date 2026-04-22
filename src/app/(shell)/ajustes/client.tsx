@@ -17,7 +17,7 @@ type SettingMeta = {
   label: string;
   unit: string;
   group: "Handoff" | "RAG" | "Debounce" | "Memória" | "Follow-up" | "Mídia" | "Bridge" | "Financiamento" | "Voz (TTS)";
-  inputType: "number" | "float" | "enum";
+  inputType: "number" | "float" | "enum" | "text";
   min?: number;
   max?: number;
   step?: number;
@@ -341,6 +341,17 @@ const META: Record<string, SettingMeta> = {
     toDisplay: (v) => Number(v).toFixed(2),
     toStorage: (v) => String(Number(v)),
   },
+  tts_voice_id: {
+    label: "Voice ID (ElevenLabs)",
+    unit: "vazio = usa ELEVENLABS_VOICE_ID do .env",
+    group: "Voz (TTS)",
+    // String alfanumérica (ex: GDzHdQOi6jjf8zaXhCYD). inputType="text"
+    // evita o filtro de dígitos do <input type="number"> que mangling
+    // o id (GDzHdQOi6jjf8zaXhCYD → "68").
+    inputType: "text",
+    toDisplay: (v) => v,
+    toStorage: (v) => v.trim(),
+  },
 };
 
 const GROUP_ORDER: SettingMeta["group"][] = [
@@ -500,6 +511,26 @@ function SettingRow({ setting, onSaved }: { setting: Setting; onSaved: () => voi
               </option>
             ))}
           </select>
+        ) : meta?.inputType === "text" ? (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+            }}
+            style={{
+              background: "var(--surface-3)",
+              border: "1px solid var(--hairline-2)",
+              borderRadius: 10,
+              padding: "8px 12px",
+              color: "var(--ink)",
+              fontSize: 13,
+              fontFamily: "var(--font-mono)",
+              width: 260,
+              outline: "none",
+            }}
+          />
         ) : (
           <input
             type="number"
