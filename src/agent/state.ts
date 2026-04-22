@@ -3,6 +3,7 @@ import type { BaseMessage } from "@langchain/core/messages";
 import type { Qualification } from "@/lib/leads";
 import type { HandoffReason, HandoffUrgency } from "@/lib/handoff-copy";
 import type { RetrievedSource } from "./retrieval";
+import type { FotoCategoria } from "@/lib/empreendimentos-shared";
 
 export type Intent =
   | "saudacao"
@@ -13,6 +14,17 @@ export type Intent =
   | "handoff_humano";
 
 export type Stage = "greet" | "discover" | "qualify" | "recommend" | "schedule" | "handoff";
+
+/**
+ * Sinal estruturado emitido pelo router quando o lead pede mídia explicitamente.
+ *  - "fotos":   "manda foto", "quero ver a fachada", "me mostra o decorado"
+ *  - "booking": "manda o book/apresentação/material"
+ *  - null:      nenhum pedido explícito
+ *
+ * Quem consome: `mediaNode` depois do answerNode, pra disparar as tools
+ * `sendEmpreendimentoFotos` / `sendEmpreendimentoBooking` fire-and-forget.
+ */
+export type MediaIntent = "fotos" | "booking" | null;
 
 export const SDRState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
@@ -94,6 +106,20 @@ export const SDRState = Annotation.Root({
     default: () => null,
   }),
   handoffUrgency: Annotation<HandoffUrgency | null>({
+    reducer: (_, n) => n,
+    default: () => null,
+  }),
+  /**
+   * Pedido explícito de mídia detectado pelo router. Quando ≠ null, o
+   * mediaNode dispara envio de fotos/booking do primeiro `retrievedSources`
+   * depois que a resposta de texto sai. Null = nenhum envio.
+   */
+  mediaIntent: Annotation<MediaIntent>({ reducer: (_, n) => n, default: () => null }),
+  /**
+   * Categoria de foto inferida quando mediaIntent="fotos". Null = mix
+   * automático (fachada/decorado/lazer priorizados).
+   */
+  mediaCategoria: Annotation<FotoCategoria | null>({
     reducer: (_, n) => n,
     default: () => null,
   }),

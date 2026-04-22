@@ -50,3 +50,15 @@ export {
   type SimulateFinancingInput,
   type SimulateFinancingOutput,
 } from "./simulate-financing";
+
+export {
+  sendEmpreendimentoFotos,
+  type SendEmpreendimentoFotosInput,
+  type SendEmpreendimentoFotosOutput,
+} from "./send-empreendimento-fotos";
+
+export {
+  sendEmpreendimentoBooking,
+  type SendEmpreendimentoBookingInput,
+  type SendEmpreendimentoBookingOutput,
+} from "./send-empreendimento-booking";

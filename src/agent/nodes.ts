@@ -4,7 +4,15 @@ import type { BaseMessage } from "@langchain/core/messages";
 import { chatModel } from "@/lib/anthropic";
 import { ROUTER_SYSTEM, SYSTEM_SDR, recommendSystem } from "./prompts";
 import { searchByQualification, searchSemantic } from "./retrieval";
-import type { SDRStateType, Intent, Stage, HandoffReason, HandoffUrgency } from "./state";
+import type {
+  SDRStateType,
+  Intent,
+  Stage,
+  HandoffReason,
+  HandoffUrgency,
+  MediaIntent,
+} from "./state";
+import type { FotoCategoria } from "@/lib/empreendimentos-shared";
 import type { Qualification } from "@/lib/leads";
 import { env } from "@/lib/env";
 import { anthropicUsage, langchainAnthropicUsage, logUsage } from "@/lib/ai-usage";
@@ -242,6 +250,8 @@ Anexe um campo "extracted" no JSON com SOMENTE os campos detectados.`;
     extracted?: Qualification;
     handoff_reason?: HandoffReason | null;
     handoff_urgency?: HandoffUrgency | null;
+    media_intent?: MediaIntent;
+    media_categoria?: FotoCategoria | null;
     rationale?: string;
   };
   try {
@@ -281,6 +291,27 @@ Anexe um campo "extracted" no JSON com SOMENTE os campos detectados.`;
       : "media"
     : null;
 
+  // Sinal de mídia — só propaga valores do enum. Qualquer outro vira null.
+  const validMediaIntents: MediaIntent[] = ["fotos", "booking"];
+  const validCategorias: FotoCategoria[] = [
+    "fachada",
+    "lazer",
+    "decorado",
+    "planta",
+    "vista",
+    "outros",
+  ];
+  const mediaIntent: MediaIntent = validMediaIntents.includes(
+    parsed.media_intent as MediaIntent,
+  )
+    ? (parsed.media_intent as MediaIntent)
+    : null;
+  const mediaCategoria: FotoCategoria | null =
+    mediaIntent === "fotos" &&
+    validCategorias.includes(parsed.media_categoria as FotoCategoria)
+      ? (parsed.media_categoria as FotoCategoria)
+      : null;
+
   // Score 0-100 calculado aqui — serve pro Priority Rail do inbox. Custo:
   // puro CPU, ~0ms, explicável (ver `computeLeadScore`). Persistido em
   // `leads.score` pelo webhook (runAgentTurn).
@@ -304,6 +335,8 @@ Anexe um campo "extracted" no JSON com SOMENTE os campos detectados.`;
     handoffReason,
     handoffUrgency,
     score,
+    mediaIntent,
+    mediaCategoria,
   };
 }
 

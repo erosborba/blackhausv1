@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reindexEmpreendimento, type Midia } from "@/lib/empreendimentos";
+import type { Foto } from "@/lib/empreendimentos-shared";
 
 /**
  * Redireciona pra signed URL do bucket `empreendimentos` pra download/preview.
@@ -34,13 +35,18 @@ async function ensureBelongs(
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("empreendimentos")
-    .select("midias")
+    .select("midias, fotos, booking_digital_path")
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, status: 500, error: error.message };
   if (!data) return { ok: false, status: 404, error: "empreendimento não encontrado" };
   const midias: Midia[] = Array.isArray(data.midias) ? (data.midias as Midia[]) : [];
-  const belongs = midias.some((m) => m.path === storagePath);
+  const fotos: Foto[] = Array.isArray(data.fotos) ? (data.fotos as Foto[]) : [];
+  const booking = typeof data.booking_digital_path === "string" ? data.booking_digital_path : null;
+  const belongs =
+    midias.some((m) => m.path === storagePath) ||
+    fotos.some((f) => f.path === storagePath) ||
+    booking === storagePath;
   if (!belongs) return { ok: false, status: 404, error: "arquivo não pertence a este empreendimento" };
   return { ok: true, midias };
 }

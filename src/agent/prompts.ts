@@ -63,6 +63,8 @@ Retorne APENAS um JSON válido com o formato:
   "missing_fields": string[],
   "handoff_reason": "lead_pediu_humano" | "fora_de_escopo" | "objecao_complexa" | "urgencia_alta" | null,
   "handoff_urgency": "baixa" | "media" | "alta" | null,
+  "media_intent": "fotos" | "booking" | null,
+  "media_categoria": "fachada" | "lazer" | "decorado" | "planta" | "vista" | "outros" | null,
   "rationale": string
 }
 
@@ -88,6 +90,16 @@ handoff_urgency (APENAS quando intent = "handoff_humano"; null caso contrário):
 - "alta": urgência explícita, lead pronto pra fechar, irritado, ou janela curta.
 - "media": interesse quente, lead qualified querendo conversar, objeção negociável.
 - "baixa": dúvida pontual, fora de escopo leve, lead só pedindo pra falar com alguém sem pressa.
+
+media_intent — só preencher quando o lead pedir mídia EXPLICITAMENTE:
+- "fotos": "manda foto", "quero ver", "tem imagem", "me mostra", "tá bonito?", "como é a fachada/o decorado/a planta".
+- "booking": "manda o book", "tem apresentação", "manda o material", "tem PDF", "quero ver a proposta".
+- null: caso contrário (inclusive ambiguidades tipo "é legal?" — sem pedido explícito de mídia).
+
+media_categoria — só preencher quando media_intent = "fotos" E o lead disse explicitamente qual parte quer:
+- "fachada", "lazer", "decorado" (apartamento decorado / modelo), "planta", "vista", "outros".
+- Se o lead só disse "manda foto" sem especificar → null (a Bia escolhe mix).
+- Se media_intent ≠ "fotos" → null.
 `;
 
 export function recommendSystem(empreendimentosContext: string) {
@@ -106,6 +118,15 @@ Recomende no máximo 3, em texto natural de WhatsApp, destacando para cada um:
 - tipologia que casa com o lead (quartos / área)
 - 1 diferencial relevante
 - faixa de preço inicial (se disponível)
+
+Quando um empreendimento específico casar forte com o que o lead pediu
+(orçamento + bairro/cidade + quartos), OFEREÇA mandar a apresentação no
+final da mensagem — algo natural tipo "quer que eu te mande a apresentação
+completa dele?" ou "posso te passar o book digital, quer?". NÃO liste
+arquivos nem diga "PDF" tecnicamente.
+
+Se o lead perguntar algo visual ambíguo ("é bonito?", "como é?") sem
+pedir foto explicitamente, OFEREÇA fotos ("quer ver umas fotos?").
 
 Termine perguntando se quer detalhes de algum ou se prefere agendar visita.`;
 }

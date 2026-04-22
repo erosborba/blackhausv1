@@ -2,6 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { env } from "./env";
 import { supabaseAdmin } from "./supabase";
 import { searchByQualification, searchSemantic } from "@/agent/retrieval";
+import {
+  sendEmpreendimentoBooking,
+  sendEmpreendimentoFotos,
+} from "@/agent/tools";
+import type { FotoCategoria } from "./empreendimentos-shared";
 import { leadIdFromRef } from "./handoff";
 import type { Agent } from "./agents";
 import { anthropicUsage, logUsage } from "./ai-usage";
@@ -52,6 +57,8 @@ Você NUNCA inventa preço, endereço, metragem, diferencial, status ou qualific
 • **buscar_empreendimentos_semantico** — busca aberta em linguagem natural. Use pra diferenciais específicos ("pet-friendly", "rooftop", "coworking"), estilo arquitetônico, público-alvo, detalhes técnicos (drywall, piso, acabamento). Se a busca filtrada trouxe pouco detalhe, escalada pra esta.
 • **ver_lead** — puxa qualificação, brief e últimas mensagens de QUALQUER lead por telefone. Use quando o corretor pergunta sobre lead que NÃO está em foco ou você precisa confirmar dados antes de propor resposta.
 • **propor_resposta** — você registra um draft pronto pro lead. O sistema entrega numa mensagem separada pro corretor copiar/aprovar limpo. Não escreva o texto do draft na sua resposta depois de chamar a tool; só comente brevemente (ex.: "Mandei um draft pro João separado aqui 👇").
+• **enviar_fotos_empreendimento** — envia DIRETO pro WhatsApp do lead as fotos do empreendimento (até 4). Use quando o corretor pedir ("manda as fotos do Aya pro João", "envia a fachada pra ele"). Pode filtrar por categoria (fachada, lazer, decorado, planta, vista). Side-effect real — só chame se o corretor pediu claramente.
+• **enviar_booking_empreendimento** — envia o PDF de apresentação/book do empreendimento DIRETO pro WhatsApp do lead. Use quando o corretor pedir ("manda o book do Aya pro João"). Side-effect real — só chame se o corretor pediu claramente.
 
 # Quando usar propor_resposta
 Use quando o corretor pedir explicitamente: "redige pra ele", "sugere resposta", "manda um texto", "responde o X", "bota um draft", "escreve pra mim".
@@ -144,6 +151,49 @@ const TOOLS: ToolSchema[] = [
     },
   },
   {
+    name: "enviar_fotos_empreendimento",
+    description:
+      "Envia DIRETO pro WhatsApp do lead as fotos do empreendimento (até 4). Ação real com side-effect — só use se o corretor pediu explicitamente. Identifique o empreendimento pelo nome (a gente resolve internamente). Se o corretor especificou parte (fachada, lazer, decorado, planta, vista), passe em `categoria`; senão omita e a gente manda um mix.",
+    input_schema: {
+      type: "object",
+      properties: {
+        empreendimento_nome: {
+          type: "string",
+          description: "Nome do empreendimento (ex: 'Aya', 'Vista Batel'). Match é case-insensitive e sem acento.",
+        },
+        lead_telefone: {
+          type: "string",
+          description: "Telefone do lead destinatário (ex: 5541995298060).",
+        },
+        categoria: {
+          type: "string",
+          enum: ["fachada", "lazer", "decorado", "planta", "vista", "outros"],
+          description: "Opcional. Filtra por categoria de foto. Omita pra mandar mix (fachada/decorado/lazer priorizados).",
+        },
+      },
+      required: ["empreendimento_nome", "lead_telefone"],
+    },
+  },
+  {
+    name: "enviar_booking_empreendimento",
+    description:
+      "Envia DIRETO pro WhatsApp do lead o PDF de apresentação/book do empreendimento. Ação real com side-effect — só use se o corretor pediu explicitamente.",
+    input_schema: {
+      type: "object",
+      properties: {
+        empreendimento_nome: {
+          type: "string",
+          description: "Nome do empreendimento (ex: 'Aya'). Match case-insensitive sem acento.",
+        },
+        lead_telefone: {
+          type: "string",
+          description: "Telefone do lead destinatário (ex: 5541995298060).",
+        },
+      },
+      required: ["empreendimento_nome", "lead_telefone"],
+    },
+  },
+  {
     name: "propor_resposta",
     description:
       "Registra um draft de mensagem pro lead. O sistema envia o draft numa mensagem separada pro corretor poder copiar/aprovar limpo no WhatsApp. NÃO reescreva o texto do draft no seu output depois de chamar essa tool — só comente brevemente (1 frase). O corretor aprova respondendo 👍 ao draft, ou envia uma versão editada.",
@@ -195,6 +245,27 @@ function capToolResult(s: string): string {
     s.slice(0, TOOL_RESULT_MAX_CHARS) +
     `\n\n[…truncado, mostre mais resultados só se o corretor pedir; peça pra ele estreitar o filtro em vez de solicitar tudo]`
   );
+}
+
+/** Resolve empreendimento por nome (match ilike normalizado sem acento). */
+async function resolveEmpreendimentoByName(
+  nome: string,
+): Promise<{ id: string; nome: string } | null> {
+  const clean = nome.trim();
+  if (!clean) return null;
+  const sb = supabaseAdmin();
+  // Busca top-3 com ilike e escolhe o match mais curto (evita pegar
+  // "Aya Garden" quando o corretor disse "Aya").
+  const { data } = await sb
+    .from("empreendimentos")
+    .select("id, nome")
+    .eq("ativo", true)
+    .ilike("nome", `%${clean}%`)
+    .limit(3);
+  const rows = (data ?? []) as Array<{ id: string; nome: string }>;
+  if (!rows.length) return null;
+  rows.sort((a, b) => a.nome.length - b.nome.length);
+  return rows[0];
 }
 
 async function runTool(name: string, input: Record<string, unknown>): Promise<string> {
@@ -261,6 +332,51 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
           .filter(Boolean)
           .join("\n"),
       );
+    }
+    if (name === "enviar_fotos_empreendimento") {
+      const nome = String(input.empreendimento_nome ?? "");
+      const phoneRaw = String(input.lead_telefone ?? "");
+      const phone = phoneRaw.replace(/\D/g, "");
+      const categoria = input.categoria as FotoCategoria | undefined;
+      if (!nome || !phone) return "Erro: empreendimento_nome e lead_telefone são obrigatórios.";
+      const emp = await resolveEmpreendimentoByName(nome);
+      if (!emp) return `Não achei empreendimento com nome "${nome}". Confirma como tá cadastrado?`;
+      const r = await sendEmpreendimentoFotos({
+        empreendimento_id: emp.id,
+        lead_phone: phone,
+        categoria,
+      });
+      if (r.ok) {
+        const catLabel = r.categoria === "mix" ? "" : ` (${r.categoria})`;
+        return `Enviei ${r.sent} foto(s)${catLabel} do ${r.empreendimento_nome} pro ${phone}.`;
+      }
+      const reasonMsg: Record<string, string> = {
+        empreendimento_not_found: "empreendimento não encontrado",
+        no_fotos: `${emp.nome} não tem fotos cadastradas`,
+        no_fotos_in_categoria: `${emp.nome} não tem fotos na categoria ${categoria ?? "solicitada"}`,
+        send_failed: "falha ao enviar pelo WhatsApp",
+      };
+      return `Não rolou: ${reasonMsg[r.reason] ?? r.reason}${r.message ? ` (${r.message})` : ""}.`;
+    }
+    if (name === "enviar_booking_empreendimento") {
+      const nome = String(input.empreendimento_nome ?? "");
+      const phoneRaw = String(input.lead_telefone ?? "");
+      const phone = phoneRaw.replace(/\D/g, "");
+      if (!nome || !phone) return "Erro: empreendimento_nome e lead_telefone são obrigatórios.";
+      const emp = await resolveEmpreendimentoByName(nome);
+      if (!emp) return `Não achei empreendimento com nome "${nome}". Confirma como tá cadastrado?`;
+      const r = await sendEmpreendimentoBooking({
+        empreendimento_id: emp.id,
+        lead_phone: phone,
+      });
+      if (r.ok) return `Enviei o book do ${r.empreendimento_nome} pro ${phone}.`;
+      const reasonMsg: Record<string, string> = {
+        empreendimento_not_found: "empreendimento não encontrado",
+        no_booking: `${emp.nome} não tem booking digital cadastrado`,
+        download_failed: "falha ao baixar o PDF do storage",
+        send_failed: "falha ao enviar pelo WhatsApp",
+      };
+      return `Não rolou: ${reasonMsg[r.reason] ?? r.reason}${r.message ? ` (${r.message})` : ""}.`;
     }
     return `Tool desconhecida: ${name}`;
   } catch (e) {

@@ -18,6 +18,10 @@ import {
   recoverHandoffEscalations,
 } from "@/lib/handoff";
 import { brokerCopilot } from "@/lib/copilot";
+import {
+  sendEmpreendimentoBooking,
+  sendEmpreendimentoFotos,
+} from "@/agent/tools";
 import { findLatestProposed, markDraftActed, recordDraft } from "@/lib/drafts";
 import { supabaseAdmin } from "@/lib/supabase";
 import { cancelFollowUpsForLead } from "@/lib/follow-ups";
@@ -311,6 +315,8 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
     score,
     stage: nextStage,
     sources,
+    mediaIntent,
+    mediaCategoria,
   } = await runSDR({
     lead,
     userText: combinedText,
@@ -325,6 +331,35 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
       content: reply,
       sources: sources.length > 0 ? sources : null,
     });
+  }
+
+  // Envio de mídia fire-and-forget, depois do texto da Bia. A tool só
+  // dispara se o router detectou pedido explícito E o retrieval trouxe
+  // pelo menos um empreendimento. Falhas não afetam o turno — são logadas.
+  if (mediaIntent && sources.length > 0) {
+    const targetEmpId = sources[0].empreendimentoId;
+    // sendTarget é phone ou JID @lid — ambos aceitos pelo endpoint Evolution,
+    // mesmo formato que usamos em sendText acima.
+    if (mediaIntent === "fotos") {
+      sendEmpreendimentoFotos({
+        empreendimento_id: targetEmpId,
+        lead_phone: sendTarget,
+        categoria: mediaCategoria ?? undefined,
+      })
+        .then((r) => {
+          if (!r.ok) console.warn("[webhook] send_fotos:", r.reason);
+        })
+        .catch((e) => console.error("[webhook] send_fotos threw", e));
+    } else if (mediaIntent === "booking") {
+      sendEmpreendimentoBooking({
+        empreendimento_id: targetEmpId,
+        lead_phone: sendTarget,
+      })
+        .then((r) => {
+          if (!r.ok) console.warn("[webhook] send_booking:", r.reason);
+        })
+        .catch((e) => console.error("[webhook] send_booking threw", e));
+    }
   }
 
   // status muda pra "qualified" só se ainda não estava em won/lost — evita

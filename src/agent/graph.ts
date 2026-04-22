@@ -1,6 +1,13 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
-import { SDRState, type SDRStateType, type HandoffReason, type HandoffUrgency } from "./state";
+import {
+  SDRState,
+  type SDRStateType,
+  type HandoffReason,
+  type HandoffUrgency,
+  type MediaIntent,
+} from "./state";
+import type { FotoCategoria } from "@/lib/empreendimentos-shared";
 import {
   routerNode,
   retrieveNode,
@@ -62,6 +69,8 @@ export async function runSDR(args: {
   stage: Stage | null;
   intent: Intent | null;
   sources: RetrievedSource[];
+  mediaIntent: MediaIntent;
+  mediaCategoria: FotoCategoria | null;
 }> {
   const app = await getGraph();
   const threadId = `lead:${args.lead.id}`;
@@ -101,5 +110,7 @@ export async function runSDR(args: {
     stage: final.stage ?? null,
     intent: final.intent ?? null,
     sources: final.retrievedSources ?? [],
+    mediaIntent: final.mediaIntent ?? null,
+    mediaCategoria: final.mediaCategoria ?? null,
   };
 }

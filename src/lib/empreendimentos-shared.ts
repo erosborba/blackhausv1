@@ -34,6 +34,30 @@ export type RawKnowledge = {
   added_at: string;       // ISO timestamp
 };
 
+/**
+ * Foto de um empreendimento — material visual pro lead. Diferente de
+ * `Midia` (que alimenta o RAG), fotos NÃO passam por extração/embedding:
+ * ficam aguardando uma tool da Bia enviar via WhatsApp.
+ */
+export type FotoCategoria =
+  | "fachada"
+  | "lazer"
+  | "decorado"
+  | "planta"
+  | "vista"
+  | "outros";
+
+export type Foto = {
+  id: string;
+  path: string;
+  name: string;
+  size: number;
+  categoria: FotoCategoria;
+  legenda: string | null;
+  ordem: number;
+  added_at: string;
+};
+
 /** FAQ cadastrada pelo corretor ou gerada pela IA. */
 export type Faq = {
   id: string;
@@ -64,6 +88,14 @@ export type Empreendimento = {
   midias: Midia[];
   /** Chunks extraídos do Claude na hora do upload (fonte pro RAG profundo). */
   raw_knowledge: RawKnowledge[];
+  /**
+   * Path no bucket `empreendimentos` do PDF de booking digital — material
+   * de venda que a Bia envia direto pro lead via tool `enviar_booking`.
+   * Não passa por extração/RAG: é só um arquivo pra enviar.
+   */
+  booking_digital_path: string | null;
+  /** Galeria de fotos categorizadas. Não entra no RAG. */
+  fotos: Foto[];
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -333,6 +365,14 @@ export function computeGaps(e: Empreendimento, faqCount = 0): Gap[] {
       label: "Sem documentos anexados",
       severity: "low",
       hint: "Book/memorial/tabela enriquecem o RAG profundo.",
+    });
+  }
+  if (!Array.isArray(e.fotos) || e.fotos.length === 0) {
+    gaps.push({
+      field: "fotos",
+      label: "Sem fotos",
+      severity: "low",
+      hint: "A Bia precisa de fotos pra mandar quando o lead pedir.",
     });
   }
   if (!Array.isArray(e.raw_knowledge) || e.raw_knowledge.length === 0) {
