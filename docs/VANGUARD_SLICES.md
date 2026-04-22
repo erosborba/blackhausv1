@@ -527,9 +527,14 @@ experiência, não desbloqueia o fluxo.
 
 ## Track 4 — TTS outbound
 
-**Objetivo**: Bia responde áudio quando lead manda áudio. Humanização.
+**Objetivo**: Bia responde áudio quando lead manda áudio **E** quando
+o conteúdo é sonorizável. Humanização sem atropelar números.
 
-### [ ] 4.1 · Client ElevenLabs
+**Princípio**: áudio serve pra fala natural (saudação, pergunta curta,
+ack). Texto serve pra dados estruturados (valores, datas, bullets,
+endereços). Dupla condição: preferência do lead **E** content-shape OK.
+
+### [x] 4.1 · Client ElevenLabs
 - `src/lib/tts.ts` — synthesize(text, voiceId) → Buffer mp3
 - Cache por hash (sha256(text+voice)) em Supabase Storage pra
   reaproveitar saudações comuns
@@ -539,11 +544,33 @@ experiência, não desbloqueia o fluxo.
 - Extensão de `src/lib/evolution.ts` com `sendAudio({to, buffer, ptt:true})`
 - DoD: áudio chega como PTT no WhatsApp
 
-### [ ] 4.3 · Decision layer
-- Novo node `decide-modality` no graph
-- Regra: se últimas 3 msgs do lead tiveram ≥ 1 áudio → responde áudio
-- Flag `lead.prefers_audio` memoizada
-- DoD: eval case "lead manda áudio" → Bia responde áudio
+### [ ] 4.3 · Decision layer — dupla condição
+- Novo node `decide-modality` no graph, rodando *depois* do answer e
+  *antes* do send. Decide: texto ou áudio, baseado em:
+
+  **A) Preferência do lead** (`lead.prefers_audio`):
+  - Ligada quando ≥1 das últimas 3 msgs do lead foi áudio
+  - Memoizada em coluna na tabela `leads`
+
+  **B) Source override — sempre texto quando**:
+  - Última resposta veio de `ToolMessage` (finance-simulate, mcmv,
+    show-photos, book-visit, etc). Tool output = estrutura, sempre.
+
+  **C) Content classifier — filtro determinístico puro**
+  (`src/lib/tts-classify.ts`, testável sem LLM). Rejeita áudio se:
+  - Contém `R$`, `%`, `m²`, `km`
+  - Números com ≥ 4 dígitos consecutivos (`532935`)
+  - Datas (`dd/mm`, `mês/yy`, `nov/29`, nomes de mês + ano)
+  - ≥ 2 quebras de linha (é lista, não fala)
+  - Bullets no início de linha (`*`, `•`, `-`, emoji + texto)
+  - Endereços (regex `[A-Z]\w+,\s*\d+`)
+  - Length > 300 chars
+
+  **Decisão final**: `modality = audio` se **A && !B && C**.
+
+- DoD: unit tests cobrindo cada sinal do classifier + eval case
+  "lead manda áudio com pergunta curta" → áudio; "lead manda áudio
+  mas Bia responde com simulação" → texto.
 
 ### [ ] 4.4 · Fallback + budget
 - Se ElevenLabs falha → manda texto
