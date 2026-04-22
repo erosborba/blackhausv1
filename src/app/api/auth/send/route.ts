@@ -4,12 +4,15 @@ import { supabaseServer } from "@/lib/auth/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * POST /api/auth/send — dispara magic-link pro email.
+ * POST /api/auth/send — dispara código OTP de 6 dígitos pro email.
  *
  * Valida que o email existe em `public.agents.email` antes de mandar —
  * assim evitamos criar auth.users "órfãos" de spam/digitação errada. O
- * próprio Supabase cria o auth.users no clique do link, e nosso trigger
- * `link_agent_on_user_signup` amarra em agents por email.
+ * próprio Supabase cria o auth.users quando o código é verificado, e
+ * nosso trigger `link_agent_on_user_signup` amarra em agents por email.
+ *
+ * Sem `emailRedirectTo` — queremos só o token, não o magic-link (que
+ * dependia da URL de origem, dor de cabeça entre localhost e deploy).
  *
  * Retorna 200 mesmo se o email não existir no agents (anti-enumeração
  * cautelosa — mas loga no servidor pra debug).
@@ -27,7 +30,6 @@ export async function POST(req: Request) {
   }
   const { email } = parsed;
 
-  // Lookup em agents — só dispara link se for pre-cadastrado e ativo.
   const admin = supabaseAdmin();
   const { data: agent } = await admin
     .from("agents")
@@ -37,18 +39,13 @@ export async function POST(req: Request) {
 
   if (!agent || agent.active === false) {
     console.warn("[auth/send] email not in agents table:", email);
-    // Retorna ok genérico pra não enumerar emails válidos.
     return NextResponse.json({ ok: true });
   }
 
   const supa = await supabaseServer();
-  const origin = process.env.APP_BASE_URL ?? new URL(req.url).origin;
-  const redirectTo = `${origin}/api/auth/callback`;
-
   const { error } = await supa.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: redirectTo,
       shouldCreateUser: true,
     },
   });

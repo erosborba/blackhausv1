@@ -6,12 +6,12 @@ import "./login.css";
 export const dynamic = "force-dynamic";
 
 /**
- * /login — magic-link. Server component checa se já está logado pra
- * redirecionar direto pro destino.
+ * /login — OTP code (6-10 dígitos conforme config do Supabase). Server
+ * component checa sessão existente e redireciona se já logado.
  *
  * Query params:
  *   ?next=/pagina  → redireciona pra essa rota após login
- *   ?err=codigo    → mostra mensagem de erro (do callback)
+ *   ?err=codigo    → mensagem de erro (vinda do middleware/callback)
  */
 export default async function LoginPage({
   searchParams,
@@ -21,36 +21,73 @@ export default async function LoginPage({
   const { next, err } = await searchParams;
   const { user, agent } = await getSession();
 
-  // Já logado + mapeado → pro destino.
   if (user && agent?.active) {
     redirect(safeNext(next));
   }
 
+  const envLabel =
+    process.env.NODE_ENV === "production" ? "produção" : "local";
+
   return (
-    <main className="bh login-wrap">
-      <section className="login-card">
-        <div className="login-brand">
-          <span className="login-logo-mark">bh</span>
-          <span className="login-logo-text">Blackhaus</span>
+    <main className="login-page">
+      <div className="login-grain" aria-hidden="true" />
+
+      <section className="login-panel login-panel-form">
+        <header className="login-brand">
+          <span className="login-mark" aria-hidden="true">lh</span>
+          <span className="login-brand-text">Lumihaus</span>
+          <span className={`login-env login-env-${envLabel === "produção" ? "prod" : "dev"}`}>
+            {envLabel}
+          </span>
+        </header>
+
+        <div className="login-card">
+          {user && !agent ? (
+            <div className="login-alert">
+              Você entrou mas seu email ainda não está vinculado a nenhum
+              corretor. Pede pro admin te cadastrar em <code>/ajustes</code>.
+            </div>
+          ) : null}
+          {err ? <div className="login-alert">{errText(err)}</div> : null}
+
+          <LoginForm next={safeNext(next)} />
         </div>
-        <h1 className="login-title">Entrar</h1>
-        <p className="login-sub">
-          Mandamos um link mágico pro seu email cadastrado. Clica nele
-          aqui mesmo pra entrar — sem senha.
-        </p>
-        {user && !agent ? (
-          <div className="login-alert">
-            Você entrou mas seu email ainda não está vinculado a nenhum
-            corretor. Pede pro admin te cadastrar em <code>/ajustes</code>.
-          </div>
-        ) : null}
-        {err ? <div className="login-alert">{errText(err)}</div> : null}
-        <LoginForm next={safeNext(next)} />
-        <p className="login-fine">
-          Ao entrar você concorda em ter sua atividade logada pra auditoria
-          operacional.
-        </p>
+
+        <footer className="login-foot">
+          <span>Acesso logado e auditado.</span>
+          <span className="login-foot-sep">·</span>
+          <span>Sem senha, sem link.</span>
+        </footer>
       </section>
+
+      <aside className="login-panel login-panel-display" aria-hidden="true">
+        <div className="login-display-top">
+          <span className="login-coord">25°26′ S · 49°16′ W</span>
+          <span className="login-dot" />
+        </div>
+
+        <div className="login-display-hero">
+          <h1 className="login-display-title">
+            <span className="login-display-line">Lumi</span>
+            <span className="login-display-line login-display-line-indent">haus</span>
+          </h1>
+          <div className="login-display-rule" />
+          <p className="login-display-tag">
+            SDR de empreendimentos novos. <br />
+            <em>Curitiba.</em>
+          </p>
+        </div>
+
+        <div className="login-display-bottom">
+          <div className="login-display-meta">
+            <span className="login-meta-label">Copiloto</span>
+            <span className="login-meta-value">WhatsApp · Pipeline · Handoff</span>
+          </div>
+          <div className="login-display-year">
+            {new Date().getFullYear()}
+          </div>
+        </div>
+      </aside>
     </main>
   );
 }
@@ -64,10 +101,10 @@ function safeNext(next: string | undefined): string {
 function errText(code: string): string {
   switch (code) {
     case "missing_code":
-      return "Link inválido — pede outro.";
+      return "Link inválido — pede outro código.";
     case "exchange_failed":
     case "otp_expired":
-      return "Link expirou ou já foi usado. Pede outro.";
+      return "Link expirou ou já foi usado. Pede outro código.";
     case "access_denied":
       return "Acesso negado — o link não é mais válido.";
     case "no_agent":
