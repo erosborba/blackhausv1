@@ -1,22 +1,23 @@
 #!/usr/bin/env node
 /**
- * Smoke test da síntese ElevenLabs (Vanguard · 4.1).
+ * Smoke test da síntese ElevenLabs + entrega PTT (Vanguard · 4.1 + 4.2).
  *
  *   node scripts/tts-test.mjs "oi!"
  *   node scripts/tts-test.mjs "bom dia" --voice-id=aBaVz2FTZkqVNXrDkzMV
  *   node scripts/tts-test.mjs "olá" --model=eleven_turbo_v2_5 --out=./saida.mp3
+ *   node scripts/tts-test.mjs "oi, tudo bem?" --send=5511999999999
  *
- * Chama a API diretamente (sem passar pelo backend) pra validar:
- *   - ELEVENLABS_API_KEY está setada e funciona
- *   - Voice ID existe
- *   - mp3 sai do tamanho esperado (>5 KB normalmente)
+ * Com --send=<phone>, depois de gerar o mp3, chama a Evolution em
+ * /message/sendWhatsAppAudio/{instance} e entrega como bolha de voz.
  *
- * DoD do slice 4.1: roda sem erro e gera arquivo mp3 tocável.
+ * DoD:
+ *   4.1: roda sem --send e gera mp3 tocável.
+ *   4.2: com --send=<phone>, chega PTT no WhatsApp (com waveform).
  *
  * O script NÃO mexe no bucket de cache — isso é responsabilidade da
  * função `synthesize` em `src/lib/tts.ts`, que roda dentro do Next
- * (precisa de supabaseAdmin + env completo). Aqui só exercitamos a
- * call externa.
+ * (precisa de supabaseAdmin + env completo). Aqui só exercitamos as
+ * calls externas (ElevenLabs + Evolution).
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -61,6 +62,7 @@ const model =
 const outPath =
   args.find((a) => a.startsWith("--out="))?.slice(6) ??
   `./tts-${Date.now()}.mp3`;
+const sendTo = args.find((a) => a.startsWith("--send="))?.slice(7);
 
 if (!text) {
   console.error("uso: node scripts/tts-test.mjs \"texto a sintetizar\" [--voice-id=...] [--model=...] [--out=...]");
@@ -130,3 +132,50 @@ const costUsd = (chars * 30) / 1_000_000;
 console.log(`[tts-test] ✓ ${buffer.length} bytes em ${dt}ms`);
 console.log(`[tts-test]   chars: ${chars} · custo estimado: $${costUsd.toFixed(6)}`);
 console.log(`[tts-test]   gravei em ${outPath}`);
+
+// ---------------------------------------------------------------------------
+// --send=<phone> → manda pro WhatsApp como PTT via Evolution
+// ---------------------------------------------------------------------------
+
+if (sendTo) {
+  const evoBase = (env.EVOLUTION_BASE_URL || "").replace(/\/$/, "");
+  const evoKey = env.EVOLUTION_API_KEY;
+  const instance = env.EVOLUTION_INSTANCE;
+  if (!evoBase || !evoKey || !instance) {
+    console.error("[tts-test] --send requer EVOLUTION_BASE_URL / EVOLUTION_API_KEY / EVOLUTION_INSTANCE no env");
+    process.exit(1);
+  }
+
+  const phone = sendTo.replace(/\D/g, "");
+  console.log(`[tts-test] enviando PTT pra ${phone}...`);
+
+  const t1 = Date.now();
+  const evoRes = await fetch(`${evoBase}/message/sendWhatsAppAudio/${instance}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: evoKey,
+    },
+    body: JSON.stringify({
+      number: phone,
+      audio: buffer.toString("base64"),
+      delay: 800,
+    }),
+  });
+
+  const evoDt = Date.now() - t1;
+  const evoBody = await evoRes.text();
+
+  if (!evoRes.ok) {
+    console.error(`[tts-test] Evolution ${evoRes.status} (${evoDt}ms):`, evoBody.slice(0, 400));
+    process.exit(1);
+  }
+
+  console.log(`[tts-test] ✓ PTT entregue em ${evoDt}ms`);
+  try {
+    const parsed = JSON.parse(evoBody);
+    if (parsed?.key?.id) console.log(`[tts-test]   message_id: ${parsed.key.id}`);
+  } catch {
+    // ignora, já logamos o sucesso acima
+  }
+}

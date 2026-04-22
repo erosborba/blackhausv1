@@ -540,9 +540,14 @@ endereços). Dupla condição: preferência do lead **E** content-shape OK.
   reaproveitar saudações comuns
 - DoD: `node scripts/tts-test.mjs "oi!"` gera mp3
 
-### [ ] 4.2 · Evolution `sendAudio`
-- Extensão de `src/lib/evolution.ts` com `sendAudio({to, buffer, ptt:true})`
-- DoD: áudio chega como PTT no WhatsApp
+### [x] 4.2 · Evolution `sendAudio`
+- Extensão de `src/lib/evolution.ts` com `sendAudio({to, audioBase64})`
+  chamando `/message/sendWhatsAppAudio/{instance}` (endpoint PTT,
+  não sendMedia que manda como file attachment)
+- `sendPresence` estendido pra aceitar `"recording"` (bolha "gravando
+  áudio…" antes do PTT pra mimetizar humano)
+- `scripts/tts-test.mjs` ganhou `--send=<phone>` — DoD E2E fecha com
+  `node scripts/tts-test.mjs "oi!" --send=5511...` chegando PTT
 
 ### [ ] 4.3 · Decision layer — dupla condição
 - Novo node `decide-modality` no graph, rodando *depois* do answer e

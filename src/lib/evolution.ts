@@ -108,7 +108,52 @@ export async function sendDocument({
   });
 }
 
-export async function sendPresence(to: string, presence: "composing" | "paused" = "composing") {
+type SendAudioInput = {
+  to: string;
+  /**
+   * Áudio em base64 puro (sem `data:` prefix). Evolution aceita mp3
+   * direto — a Baileys faz o transcode server-side pra ogg/opus antes
+   * de subir pro WhatsApp.
+   */
+  audioBase64: string;
+  delayMs?: number;
+  quotedId?: string;
+};
+
+/**
+ * Envia áudio como PTT (push-to-talk / voice note) — bolha de voz com
+ * waveform, não anexo de arquivo. Endpoint específico do Evolution:
+ * `/message/sendWhatsAppAudio`. O `sendMedia` com `mediatype:"audio"`
+ * manda como file attachment, que NÃO é o que queremos pra TTS da Bia.
+ *
+ * Uso típico (Track 4):
+ *   const { buffer } = await synthesize({ text: "oi!" });
+ *   await sendAudio({ to: lead.phone, audioBase64: buffer.toString("base64") });
+ */
+export async function sendAudio({
+  to,
+  audioBase64,
+  delayMs = 800,
+  quotedId,
+}: SendAudioInput) {
+  return evoFetch(`/message/sendWhatsAppAudio/${env.EVOLUTION_INSTANCE}`, {
+    method: "POST",
+    body: JSON.stringify({
+      number: to,
+      audio: audioBase64,
+      delay: delayMs,
+      ...(quotedId ? { quoted: { key: { id: quotedId } } } : {}),
+    }),
+  });
+}
+
+/**
+ * Presences suportadas pela Baileys. `recording` é o "gravando áudio…"
+ * que mostramos antes do sendAudio pra mimetizar comportamento humano.
+ */
+type Presence = "composing" | "recording" | "paused";
+
+export async function sendPresence(to: string, presence: Presence = "composing") {
   return evoFetch(`/chat/sendPresence/${env.EVOLUTION_INSTANCE}`, {
     method: "POST",
     body: JSON.stringify({ number: to, presence, delay: 1200 }),
