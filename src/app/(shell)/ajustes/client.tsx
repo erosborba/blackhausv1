@@ -17,10 +17,16 @@ type SettingMeta = {
   label: string;
   unit: string;
   group: "Handoff" | "RAG" | "Debounce" | "Memória" | "Follow-up" | "Mídia" | "Bridge" | "Financiamento";
-  inputType: "number" | "float";
+  inputType: "number" | "float" | "enum";
   min?: number;
   max?: number;
   step?: number;
+  /**
+   * Só pra inputType="enum" — valores permitidos (armazenados em DB
+   * como string pura) e labels amigáveis em pt-BR. toDisplay/toStorage
+   * ficam no-op (identidade) nesse caso — o select lida com o mapping.
+   */
+  options?: ReadonlyArray<{ value: string; label: string }>;
   toDisplay: (v: string) => string;
   toStorage: (v: string) => string;
 };
@@ -238,6 +244,30 @@ const META: Record<string, SettingMeta> = {
     toDisplay: (v) => (v === "true" ? "1" : "0"),
     toStorage: (v) => (Number(v) >= 1 ? "true" : "false"),
   },
+  finance_simulate_mode: {
+    label: "Modo de entrega da simulação (SBPE/SAC)",
+    unit: "copilot = revisão humana · direto = Bia envia",
+    group: "Financiamento",
+    inputType: "enum",
+    options: [
+      { value: "copilot", label: "Copilot (revisão do corretor)" },
+      { value: "direct", label: "Direto (Bia envia os números)" },
+    ],
+    toDisplay: (v) => v,
+    toStorage: (v) => v,
+  },
+  finance_mcmv_mode: {
+    label: "Modo de entrega do MCMV (faixas + subsídio)",
+    unit: "copilot = revisão humana · direto = Bia envia",
+    group: "Financiamento",
+    inputType: "enum",
+    options: [
+      { value: "copilot", label: "Copilot (revisão do corretor)" },
+      { value: "direct", label: "Direto (Bia envia os números)" },
+    ],
+    toDisplay: (v) => v,
+    toStorage: (v) => v,
+  },
   finance_require_explicit_price: {
     label: "Exigir preço explícito na simulação (recomendado)",
     unit: "(0 = off, 1 = on)",
@@ -426,28 +456,52 @@ function SettingRow({ setting, onSaved }: { setting: Setting; onSaved: () => voi
         </p>
       ) : null}
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <input
-          type="number"
-          min={meta?.min}
-          max={meta?.max}
-          step={meta?.step ?? 1}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-          }}
-          style={{
-            background: "var(--surface-3)",
-            border: "1px solid var(--hairline-2)",
-            borderRadius: 10,
-            padding: "8px 12px",
-            color: "var(--ink)",
-            fontSize: 13,
-            fontFamily: "var(--font-mono)",
-            width: 120,
-            outline: "none",
-          }}
-        />
+        {meta?.inputType === "enum" && meta.options ? (
+          <select
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            style={{
+              background: "var(--surface-3)",
+              border: "1px solid var(--hairline-2)",
+              borderRadius: 10,
+              padding: "8px 12px",
+              color: "var(--ink)",
+              fontSize: 13,
+              fontFamily: "inherit",
+              minWidth: 260,
+              outline: "none",
+            }}
+          >
+            {meta.options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="number"
+            min={meta?.min}
+            max={meta?.max}
+            step={meta?.step ?? 1}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+            }}
+            style={{
+              background: "var(--surface-3)",
+              border: "1px solid var(--hairline-2)",
+              borderRadius: 10,
+              padding: "8px 12px",
+              color: "var(--ink)",
+              fontSize: 13,
+              fontFamily: "var(--font-mono)",
+              width: 120,
+              outline: "none",
+            }}
+          />
+        )}
         {unit ? (
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{unit}</span>
         ) : null}

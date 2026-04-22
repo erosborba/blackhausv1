@@ -453,7 +453,7 @@ e de maior valor comercial), e deixamos `cities_fiscal` pro fim
 - DoD: 137/137 unit tests verdes · tsc clean · evals/seed.json
   cobrindo ambos os modos · safety regex ataca R$/parcela/%/faixa
 
-### [~] 3.6 · UI de sugestões do copilot no /inbox
+### [x] 3.6 · UI de sugestões do copilot no /inbox — 2026-04-24
 Dividido em 3.6a (backend, sem UI) e 3.6b (UI + enum /ajustes).
 3.6a consegue fechar sozinho porque corretor já recebe a
 notificação de handoff pelo WhatsApp — o card só melhora a
@@ -492,20 +492,36 @@ experiência, não desbloqueia o fluxo.
 - DoD: **145/145 unit tests verdes** · tsc clean · fluxo de
   auto-handoff + endpoints send/discard operacionais sem UI
 
-#### [ ] 3.6b · UI card + realtime + enum /ajustes
-- Card lateral "Sugestões pendentes" no /inbox lendo
-  `copilot_suggestions` via realtime (`postgres_changes`)
-- Preview completo (preço, entrada, prazo, taxa, parcela, total)
-  renderizado como tabela, não texto
-- 3 botões: **Enviar** (hit `/api/suggestions/[id]/send`),
-  **Editar** (textarea com `text_preview` como base, `editedText`
-  no body) e **Descartar** (dropdown de motivos populando `reason`)
-- `finance_simulate_mode` / `finance_mcmv_mode` ganham input enum
-  no `/ajustes` (pattern novo)
-- UI consome `getSuggestionStats` pra mostrar taxas no /ajustes
-- DoD: fluxo E2E — Bia gera sugestão → handoff dispara (já em
-  3.6a) → corretor vê card → clica enviar → outbound chega no
-  WhatsApp do lead
+#### [x] 3.6b · UI card + realtime + enum /ajustes — 2026-04-24
+- `src/components/inbox/SuggestionsCard.tsx` (client): seção
+  dentro do ContextRail que lista sugestões `pending` do lead
+  ativo. Hook interno `useCopilotSuggestions(leadId)` faz carga
+  inicial via `GET /api/suggestions?lead_id=...` + subscribe em
+  `postgres_changes` (INSERT pra entrar / UPDATE status≠pending
+  pra sair). Card se auto-oculta quando fila zera
+- Cada card renderiza: badge do kind (simulação/MCMV) + relógio
+  "time-ago" + **tabela mono-espaçada** com números do payload
+  (preço/entrada/prazo/taxa/parcela/total pra simulation; faixa/
+  renda/subsídio/teto/1º imóvel pra mcmv) + texto preview
+- 3 modos de interação:
+  - **Enviar**: POST `/api/suggestions/[id]/send` sem body → usa
+    `text_preview` original
+  - **Editar**: textarea inline pré-populado com `text_preview`;
+    confirma com `editedText` no body → telemetria de edição
+  - **Descartar**: dropdown enum de motivos (`calculo_errado`,
+    `taxa_desatualizada`, `lead_ja_sabia`, `timing_ruim`,
+    `vou_reformular`, `outro`); "outro" libera input livre
+- `GET /api/suggestions?lead_id=<uuid>` — carga inicial + fallback
+  se canal realtime desconectar. Gate: sessão (corretor logado)
+- `/ajustes` (aba IA) ganha novo `inputType: "enum"` na SettingMeta
+  renderizando `<select>` com labels pt-BR. Aplicado a
+  `finance_simulate_mode` + `finance_mcmv_mode` (copilot/direto)
+- `CopilotStatsCard` (server component) no topo da aba IA: useRate
+  (%), noEditRate (%), contagem por status, top 5 motivos de
+  descarte. Cores ok/warm/hot por threshold (≥70% ok, ≥40% warm,
+  senão hot). "—" quando denominador zero
+- DoD: fluxo E2E backend→UI fechado · tsc clean · 145 tests verdes
+  (unit do 3.6a preservado; UI sem unit — cai em E2E posterior)
 
 ---
 

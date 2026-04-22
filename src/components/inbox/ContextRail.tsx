@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Lead } from "@/lib/leads";
 import { Timeline } from "./Timeline";
+import { SuggestionsCard } from "./SuggestionsCard";
 import { Chip } from "@/components/ui/Chip";
 import { HANDOFF_REASON_LABEL, HANDOFF_URGENCY_EMOJI } from "@/lib/handoff-copy";
 import { PIPELINE_STAGES, PIPELINE_STAGE_LABEL, type PipelineStage } from "@/lib/pipeline";
@@ -315,6 +316,13 @@ export function ContextRail({
             </span>
           </div>
         </section>
+
+        {/* ─── Sugestões do copilot pendentes (Track 3 · 3.6b) ─── */}
+        {/* Renderizado como section interna quando há pending; o próprio
+            componente retorna null se não houver nada. Alto na ordem do
+            rail porque é a próxima ação do corretor — revisar o número
+            que a Bia gerou e decidir enviar/editar/descartar. */}
+        <SuggestionsCard leadId={lead.id} />
 
         {/* ─── Empreendimento favorito (derivado de messages.sources) ─── */}
         {topEmpreendimento ? (

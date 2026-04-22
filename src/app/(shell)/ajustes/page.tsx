@@ -9,6 +9,8 @@ import { UsageTab } from "@/components/ajustes/UsageTab";
 import { ManutencaoTab } from "@/components/ajustes/ManutencaoTab";
 import { PerfisTab } from "@/components/ajustes/PerfisTab";
 import { AgendaTab } from "@/components/ajustes/AgendaTab";
+import { CopilotStatsCard } from "@/components/ajustes/CopilotStatsCard";
+import { getSuggestionStats } from "@/lib/copilot-stats";
 import "./ajustes.css";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +49,11 @@ export default async function AjustesPage({
   if (tab === "manutencao" && !can(role, "ajustes.manutencao")) redirect("/ajustes");
 
   const currentRole = await getSetting("current_role", role);
+
+  // Stats do copilot só são carregados quando a aba "IA" está ativa —
+  // evita consulta desnecessária ao trocar de aba. 7 dias é default
+  // razoável (produto novo, ainda calibrando).
+  const copilotStats = tab === "ia" ? await getSuggestionStats(7) : null;
 
   return (
     <>
@@ -87,6 +94,9 @@ export default async function AjustesPage({
         </header>
 
         <div className="ajustes-body">
+          {tab === "ia" && copilotStats ? (
+            <CopilotStatsCard stats={copilotStats} />
+          ) : null}
           {tab === "ia" ? <AjustesClient /> : null}
           {tab === "usage" ? <UsageTab /> : null}
           {tab === "manutencao" ? <ManutencaoTab /> : null}
