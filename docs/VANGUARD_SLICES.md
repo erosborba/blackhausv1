@@ -453,22 +453,59 @@ e de maior valor comercial), e deixamos `cities_fiscal` pro fim
 - DoD: 137/137 unit tests verdes · tsc clean · evals/seed.json
   cobrindo ambos os modos · safety regex ataca R$/parcela/%/faixa
 
-### [ ] 3.6 · UI de sugestões do copilot no /inbox
-- Card lateral "Sugestões pendentes" lendo `copilot_suggestions`
-  via realtime
+### [~] 3.6 · UI de sugestões do copilot no /inbox
+Dividido em 3.6a (backend, sem UI) e 3.6b (UI + enum /ajustes).
+3.6a consegue fechar sozinho porque corretor já recebe a
+notificação de handoff pelo WhatsApp — o card só melhora a
+experiência, não desbloqueia o fluxo.
+
+#### [x] 3.6a · Backend do copilot (auto-handoff + send/discard) — 2026-04-24
+- `src/lib/copilot-handoff.ts` — predicado puro
+  `shouldCreateHandoffForSuggestion(lead)` decide se vale criar
+  handoff. False quando lead já está em ponte, takeover humano
+  ativo, ou handoff pendente (sem `handoff_resolved_at`). True
+  quando handoff anterior já resolveu OU nunca existiu
+- Wrapper inline em `copilot-suggestions.ts`
+  (`maybeTriggerHandoffForSuggestion`): lê estado do lead, aplica
+  o predicado, dispara `initiateHandoff(leadId, "ia_incerta",
+  "baixa")`. Fail-soft — se Evolution cair, a sugestão já foi
+  persistida com sucesso antes
+- `ia_incerta` + `baixa` escolhidos de propósito: motivo canônico
+  pra "Bia pede revisão", urgência baixa pra não furar o 🔴 dos
+  leads realmente quentes
+- `insertCopilotSuggestion` chama o wrapper após insert bem-sucedido
+- `POST /api/suggestions/[id]/send` — corretor revisa + envia.
+  Aceita `editedText` opcional (se corretor ajustou). Envia via
+  Evolution, grava em `messages` com role="assistant" (origem Bia),
+  marca sugestão `sent`, resolve handoff pending. NÃO ativa
+  `human_takeover` (diferença vs `/leads/[id]/send`) — sugestão é
+  override pontual, Bia continua no fluxo geral
+- `POST /api/suggestions/[id]/discard` — motivo free-form (enum
+  vem em 3.6b). Também resolve handoff
+- `src/lib/copilot-stats.ts` — `getSuggestionStats(daysBack=7)`
+  expõe `useRate = sent/(sent+discarded)` e
+  `noEditRate = (sent-sentEdited)/sent`, além de top motivos de
+  descarte. Null quando denominador zero (caller renderiza "—")
+- 8 unit tests do predicado em `copilot-handoff.test.ts` cobrindo
+  as 4 branches (clean/bridge/takeover/pending) + ciclo anterior
+  fechado + belt-and-suspenders (bridge supera resolved) + null
+- DoD: **145/145 unit tests verdes** · tsc clean · fluxo de
+  auto-handoff + endpoints send/discard operacionais sem UI
+
+#### [ ] 3.6b · UI card + realtime + enum /ajustes
+- Card lateral "Sugestões pendentes" no /inbox lendo
+  `copilot_suggestions` via realtime (`postgres_changes`)
 - Preview completo (preço, entrada, prazo, taxa, parcela, total)
   renderizado como tabela, não texto
-- 3 botões: **Enviar** (grava outbound + marca sugestão `sent`),
-  **Editar** (textarea com `text_preview` como base) e **Descartar**
-  (motivo opcional free-form)
-- Criação automática de handoff motivado (`ia_incerta`) quando
-  suggestion é criada E lead não está em handoff
+- 3 botões: **Enviar** (hit `/api/suggestions/[id]/send`),
+  **Editar** (textarea com `text_preview` como base, `editedText`
+  no body) e **Descartar** (dropdown de motivos populando `reason`)
 - `finance_simulate_mode` / `finance_mcmv_mode` ganham input enum
   no `/ajustes` (pattern novo)
-- Telemetria: quantas sugestões foram enviadas sem edição vs
-  editadas vs descartadas (informa qualidade do texto da Bia)
-- DoD: fluxo E2E — Bia gera sugestão → handoff dispara → corretor
-  vê card → clica enviar → outbound chega no WhatsApp do lead
+- UI consome `getSuggestionStats` pra mostrar taxas no /ajustes
+- DoD: fluxo E2E — Bia gera sugestão → handoff dispara (já em
+  3.6a) → corretor vê card → clica enviar → outbound chega no
+  WhatsApp do lead
 
 ---
 

@@ -10,6 +10,8 @@
  *   - I-3: reusa `leads`/`messages` existentes; não duplica dados.
  */
 import { supabaseAdmin } from "./supabase";
+import { shouldCreateHandoffForSuggestion, type LeadHandoffState } from "./copilot-handoff";
+import { initiateHandoff } from "./handoff";
 
 export type CopilotSuggestionKind = "simulation" | "mcmv";
 export type CopilotSuggestionStatus = "pending" | "sent" | "discarded";
@@ -66,7 +68,55 @@ export async function insertCopilotSuggestion(
       `copilot_suggestions insert failed: ${error?.message ?? "no row"}`,
     );
   }
+
+  // Slice 3.6a — ponte com handoff. A sugestão JÁ foi persistida (o id
+  // acima é o comprovante). Queremos puxar atenção humana criando um
+  // handoff `ia_incerta` de urgência baixa, mas se isso falhar (Evolution
+  // down, corretor inexistente, etc) a sugestão continua válida — a UI
+  // do card em 3.6b mostra ela independentemente. Fail-soft por design.
+  await maybeTriggerHandoffForSuggestion(input.leadId);
+
   return data.id as string;
+}
+
+/**
+ * Side-effect wrapper do predicado puro `shouldCreateHandoffForSuggestion`.
+ * Lê estado do lead, aplica o predicado e chama `initiateHandoff` se
+ * couber. Fail-soft — nunca propaga pro caller (a sugestão já foi gravada
+ * com sucesso antes disso).
+ *
+ * Vive aqui (e não em `copilot-handoff.ts`) pra manter aquele arquivo
+ * puro/unit-testável sem precisar de Supabase no classpath do node:test.
+ */
+async function maybeTriggerHandoffForSuggestion(leadId: string): Promise<void> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("leads")
+      .select("bridge_active, human_takeover, handoff_notified_at, handoff_resolved_at")
+      .eq("id", leadId)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error(
+        "[copilot-suggestions] lead lookup failed (handoff skip)",
+        leadId,
+        error?.message,
+      );
+      return;
+    }
+
+    if (!shouldCreateHandoffForSuggestion(data as LeadHandoffState)) return;
+
+    await initiateHandoff(leadId, "ia_incerta", "baixa");
+    console.log("[copilot-suggestions] handoff triggered for suggestion", leadId);
+  } catch (e) {
+    console.error(
+      "[copilot-suggestions] maybeTriggerHandoffForSuggestion (fail-soft)",
+      leadId,
+      e instanceof Error ? e.message : e,
+    );
+  }
 }
 
 /**
