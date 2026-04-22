@@ -67,9 +67,23 @@ export async function sendOutboundReply(
 ): Promise<OutboundReplyResult> {
   const source = input.source ?? "llm";
 
+  // Log único por turno — deixa diagnosticar por que a decisão saiu
+  // assim no webhook sem ter que rodar grep + adivinhar.
+  const debug = (reason: string, extra?: Record<string, unknown>) => {
+    console.log("[tts-outbound] decision", {
+      leadId: input.leadId,
+      reason,
+      source,
+      textLen: input.text.length,
+      textPreview: input.text.slice(0, 80),
+      ...extra,
+    });
+  };
+
   // 1) Feature gate global. Default `false` até operador virar.
   const ttsEnabled = await getSettingBool("tts_enabled", false);
   if (!ttsEnabled) {
+    debug("tts_disabled");
     await sendText({ to: input.to, text: input.text, delayMs: 900 });
     return { modality: "text", reason: "tts_disabled", fellBack: false };
   }
@@ -85,6 +99,7 @@ export async function sendOutboundReply(
   });
 
   if (!decision.audio) {
+    debug(decision.reason, { prefersAudio });
     await sendText({ to: input.to, text: input.text, delayMs: 900 });
     return { modality: "text", reason: decision.reason, fellBack: false };
   }
@@ -97,9 +112,12 @@ export async function sendOutboundReply(
   const pendingUsd = computeTtsCostUsd(input.text.length);
   const budget = await checkTtsBudget(pendingUsd);
   if (!budget.allowed) {
-    console.warn(
-      `[tts-outbound] budget excedido: spent=$${budget.spentUsd.toFixed(4)} + pending=$${pendingUsd.toFixed(4)} > cap=$${budget.capUsd}`,
-    );
+    debug("budget_exceeded", {
+      spentUsd: budget.spentUsd,
+      pendingUsd,
+      capUsd: budget.capUsd,
+      prefersAudio,
+    });
     await sendText({ to: input.to, text: input.text, delayMs: 900 });
     return { modality: "text", reason: "budget_exceeded", fellBack: true };
   }
@@ -119,6 +137,10 @@ export async function sendOutboundReply(
       delayMs: 900,
       quotedId: input.quotedId,
     });
+    debug(cacheHit ? "audio_cache_hit" : "audio_synth", {
+      prefersAudio,
+      cacheKey: cacheKey.slice(0, 12),
+    });
     return {
       modality: "audio",
       reason: cacheHit ? "audio_cache_hit" : "audio_synth",
@@ -130,7 +152,10 @@ export async function sendOutboundReply(
     };
   } catch (e) {
     // 6) Fallback: TTS ou sendAudio quebrou. Cai elegante pra texto.
-    console.error(`[tts-outbound] falha áudio, caindo pra texto:`, e);
+    debug("audio_failed", {
+      prefersAudio,
+      error: e instanceof Error ? e.message : String(e),
+    });
     await sendText({ to: input.to, text: input.text, delayMs: 900 });
     return {
       modality: "text",
