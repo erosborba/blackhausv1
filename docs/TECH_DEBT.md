@@ -1,6 +1,6 @@
 # Débitos técnicos + roadmap pendente
 
-Última atualização: 2026-04-20
+Última atualização: 2026-04-22
 
 Documento vivo. Quando resolver um item, marque `[x]` e deixe a data.
 Quando adicionar novo débito, inclua file:linha pra ficar rastreável.
@@ -11,30 +11,26 @@ Quando adicionar novo débito, inclua file:linha pra ficar rastreável.
 
 ### 🔴 Alta — destravar antes de abrir pra mais corretores
 
-- [ ] **Admin sem auth.** Rotas `/admin/*` e `/api/admin/*` são abertas —
-  "quem chega, opera". Hoje é só você, mas qualquer link vazado expõe inbox,
-  settings, empreendimentos e até o botão de cleanup.
-  Arquivos: `src/app/api/admin/cleanup/route.ts:14`, todas as rotas em
-  `src/app/admin/**`.
-  **Solução**: Supabase Auth (magic link) + middleware que valida sessão em
-  `/admin/*`; allowlist de e-mails em `system_settings`. Mesmo cookie pode
-  autorizar as API routes.
+- [x] ~~**Admin sem auth.**~~ Resolvido em 2026-04-22. Todas as páginas
+  `/admin/*` viraram redirects pro shell (`/brief`, `/ajustes?tab=manutencao`,
+  `/ajustes`, `/ajustes?tab=usage`); `admin` removido da exclusão do matcher em
+  `src/middleware.ts` — auth gate Supabase agora cobre as rotas legacy. Conteúdo
+  do cleanup migrado pra `/ajustes?tab=manutencao` via
+  `src/lib/cleanup-snapshot.ts` + `src/components/ajustes/ManutencaoHealthCard.tsx`.
+  APIs `/api/admin/*` já usavam `requireAdminApi`. Login `safeNext` agora
+  bloqueia `?next=/admin/*` e cai em `/brief`.
 
-- [ ] **CRON_SECRET opcional.** Se a env não estiver setada, cron aceita sem
-  auth. Bom pra dev, arriscado em prod — qualquer curl dispara limpeza,
-  follow-up scan, handoff escalation.
-  Arquivo: `src/app/api/cron/cleanup/route.ts:19` (e irmãos em
-  `src/app/api/cron/*`).
-  **Solução**: fail-closed em prod (`if (!secret && NODE_ENV === "production")
-  return 500`).
+- [x] ~~**CRON_SECRET opcional.**~~ Resolvido em 2026-04-22. Novo
+  `src/lib/cron-auth.ts` — fail-closed em produção (500 se secret ausente),
+  aberto em dev, 401 em header inválido. Os 5 crons (cleanup, followup-scan,
+  followup-send, handoff, visit-reminders) deduplicados via `checkCronAuth`.
 
-- [ ] **Webhook Evolution sem rate limit.** Endpoint `/api/webhook/evolution`
-  processa qualquer POST. Em caso de loop ou ataque, paga Claude/Whisper
-  enquanto não cai.
-  Arquivo: `src/app/api/webhook/evolution/route.ts`.
-  **Solução**: idempotência por `messageId` (já existe via UNIQUE constraint em
-  `messages.evolution_message_id`) + leaky bucket por `remoteJid` via
-  Postgres/Redis. Abortar cedo se > N msgs/min.
+- [x] ~~**Webhook Evolution sem rate limit.**~~ Resolvido em 2026-04-22.
+  Leaky bucket in-memory por `remoteJid` em `src/lib/rate-limit.ts` (capacity
+  20, refill 30/min) aplicado em `handleOne` após o dedup de `messageId` —
+  reenvios idempotentes não consomem token. 6 unit tests cobrem burst,
+  refill, isolamento entre keys, cap enforcement. Próximo passo (não
+  bloqueador): migrar pra Redis/Postgres se sair do Railway single-process.
 
 - [ ] **Sem testes.** Zero cobertura (nem unit, nem eval, nem e2e). Cada
   refactor é "espera o webhook real reclamar". `npx tsc` é todo o CI.

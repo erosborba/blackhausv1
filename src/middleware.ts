@@ -129,11 +129,13 @@ export async function middleware(req: NextRequest) {
 }
 
 /**
- * Matcher: tudo menos static, arquivos com extensão, admin legacy.
- * API rotas entram (pra auth gate), exceto as isPublicPath acima.
+ * Matcher: tudo menos static/manifest/ícones. `/admin/*` agora entra no
+ * gate — todas essas rotas redirecionam pro shell (/brief, /ajustes, etc.),
+ * mas o auth gate roda antes do redirect pra evitar vazamento caso algum
+ * admin legacy volte a ter conteúdo.
  */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons|sw.js|admin).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons|sw.js).*)",
   ],
 };

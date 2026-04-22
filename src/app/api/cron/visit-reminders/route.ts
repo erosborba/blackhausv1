@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { checkCronAuth } from "@/lib/cron-auth";
 import { scanVisitReminders } from "@/lib/visit-reminders";
 
 export const runtime = "nodejs";
@@ -17,18 +17,9 @@ export const maxDuration = 60;
  * Bearer ou header `x-cron-secret`).
  */
 
-function isAuthorized(req: NextRequest): boolean {
-  const secret = env.CRON_SECRET;
-  if (!secret) return true;
-  const header = req.headers.get("authorization") ?? "";
-  const alt = req.headers.get("x-cron-secret") ?? "";
-  return header === `Bearer ${secret}` || alt === secret;
-}
-
 async function handle(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const gate = checkCronAuth(req);
+  if (gate) return gate;
 
   try {
     const result = await scanVisitReminders();

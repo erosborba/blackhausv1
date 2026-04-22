@@ -235,6 +235,79 @@
   color: #d96b6b;
 }
 
+.manut-section-title {
+  font-size: 11px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 28px 0 10px 2px;
+  font-weight: 500;
+}
+
+.manut-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.manut-table th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface-1);
+  font-weight: 500;
+}
+.manut-table td {
+  padding: 12px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+  color: var(--ink-2);
+}
+.manut-table tr:last-child td {
+  border-bottom: none;
+}
+.manut-task-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+.manut-task-detail {
+  color: var(--ink-3);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.manut-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.manut-badge-ok {
+  background: rgba(126, 225, 158, 0.08);
+  color: #7ee19e;
+  border-color: rgba(126, 225, 158, 0.25);
+}
+.manut-badge-amber {
+  background: rgba(225, 192, 126, 0.08);
+  color: #e1c07e;
+  border-color: rgba(225, 192, 126, 0.25);
+}
+.manut-badge-warn {
+  background: rgba(255, 159, 168, 0.08);
+  color: #ff9fa8;
+  border-color: rgba(255, 159, 168, 0.25);
+}
+
 /* Perfis ------------------------------------------------------------- */
 
 .perfil-card {

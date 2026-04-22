@@ -37,6 +37,12 @@ import {
 import { getSetting } from "@/lib/settings";
 import { emitLeadEvent } from "@/lib/lead-events";
 import { sendOutboundReply } from "@/lib/tts-outbound";
+import { take as takeRate } from "@/lib/rate-limit";
+
+// Leaky bucket por remoteJid. Protege contra loops (Evolution reenviando)
+// e contra secret vazado. Burst de 20 msgs, reabastece 30/min — humano
+// raramente passa disso mesmo digitando fragmentado.
+const WEBHOOK_RATE = { capacity: 20, refillPerMinute: 30 } as const;
 
 const HELP_TEXT = `👋 Comandos:
 • Responder (quote) uma notificação/mensagem minha → eu repasso pro lead.
@@ -169,6 +175,17 @@ async function handleOne(it: any) {
       console.log("[webhook] dedup: messageId já processado, ignorando", { messageId });
       return;
     }
+  }
+
+  // Rate limit por remoteJid — roda DEPOIS do dedup pra não consumir
+  // token em reenvios idênticos do Evolution (são ruído, não spam).
+  const rate = takeRate(`evolution:${remoteJid}`, WEBHOOK_RATE);
+  if (!rate.allowed) {
+    console.warn("[webhook] rate-limited", {
+      remoteJid,
+      retryAfterMs: rate.retryAfterMs,
+    });
+    return;
   }
 
   const innerMessage = message?.message ?? message;

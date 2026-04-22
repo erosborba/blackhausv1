@@ -7,6 +7,8 @@ import { Topbar } from "@/components/shell/Topbar";
 import { AjustesClient } from "./client";
 import { UsageTab } from "@/components/ajustes/UsageTab";
 import { ManutencaoTab } from "@/components/ajustes/ManutencaoTab";
+import { ManutencaoHealthCard } from "@/components/ajustes/ManutencaoHealthCard";
+import { loadCleanupSnapshot } from "@/lib/cleanup-snapshot";
 import { PerfisTab } from "@/components/ajustes/PerfisTab";
 import { AgendaTab } from "@/components/ajustes/AgendaTab";
 import { CopilotStatsCard } from "@/components/ajustes/CopilotStatsCard";
@@ -54,6 +56,7 @@ export default async function AjustesPage({
   // evita consulta desnecessária ao trocar de aba. 7 dias é default
   // razoável (produto novo, ainda calibrando).
   const copilotStats = tab === "ia" ? await getSuggestionStats(7) : null;
+  const cleanupSnapshot = tab === "manutencao" ? await loadCleanupSnapshot() : null;
 
   return (
     <>
@@ -99,7 +102,12 @@ export default async function AjustesPage({
           ) : null}
           {tab === "ia" ? <AjustesClient /> : null}
           {tab === "usage" ? <UsageTab /> : null}
-          {tab === "manutencao" ? <ManutencaoTab /> : null}
+          {tab === "manutencao" && cleanupSnapshot ? (
+            <>
+              <ManutencaoTab />
+              <ManutencaoHealthCard snapshot={cleanupSnapshot} />
+            </>
+          ) : null}
           {tab === "agenda" ? <AgendaTab /> : null}
           {tab === "perfis" ? <PerfisTab initialRole={currentRole} /> : null}
         </div>

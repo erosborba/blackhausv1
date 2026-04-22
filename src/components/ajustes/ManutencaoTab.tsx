@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * Aba Manutenção — botão "Executar agora" pro cron de cleanup.
@@ -17,6 +18,7 @@ type CleanupResult = {
 };
 
 export function ManutencaoTab() {
+  const router = useRouter();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<CleanupResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export function ManutencaoTab() {
         setError(json.error ?? "falha no cleanup");
       } else {
         setResult(json);
+        router.refresh();
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "erro de rede");

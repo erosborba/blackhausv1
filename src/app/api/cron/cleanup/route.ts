@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { checkCronAuth } from "@/lib/cron-auth";
 import { runAllCleanup } from "@/lib/cleanup";
 
 export const runtime = "nodejs";
@@ -12,13 +12,7 @@ export const maxDuration = 300;
  * GET /api/cron/cleanup
  *
  * Endpoint chamado 1x/dia pelo cron (Vercel Cron ou Railway/GitHub Actions).
- *
- * Auth:
- *  - Vercel Cron automaticamente envia `Authorization: Bearer <CRON_SECRET>`
- *    quando a env var existe no projeto. A gente valida aqui.
- *  - Se CRON_SECRET não está setada, aceita sem auth (dev/local). Em prod,
- *    SEMPRE setar — senão qualquer um dispara a limpeza acessando a URL.
- *
+ * Auth via `checkCronAuth` (CRON_SECRET — fail-closed em produção).
  * POST também suportado (alguns crons mandam POST por padrão).
  *
  * Resposta:
@@ -27,20 +21,9 @@ export const maxDuration = 300;
  *    geral (ex.: DB inacessível).
  */
 
-function isAuthorized(req: NextRequest): boolean {
-  const secret = env.CRON_SECRET;
-  if (!secret) return true; // sem secret configurado: endpoint aberto (dev)
-  const header = req.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  // Aceita também x-cron-secret pra crons que não suportam Authorization
-  const alt = req.headers.get("x-cron-secret") ?? "";
-  return header === expected || alt === secret;
-}
-
 async function handle(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const gate = checkCronAuth(req);
+  if (gate) return gate;
 
   try {
     const result = await runAllCleanup();

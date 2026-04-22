@@ -93,8 +93,13 @@ export default async function LoginPage({
 }
 
 function safeNext(next: string | undefined): string {
-  if (!next) return "/brief";
-  if (!next.startsWith("/") || next.startsWith("//")) return "/brief";
+  const fallback = "/brief";
+  if (!next) return fallback;
+  if (!next.startsWith("/") || next.startsWith("//")) return fallback;
+  // Barrar rotas legacy /admin/* — todas redirecionam pro shell, mas fazer
+  // o fallback no login evita double-redirect e firma o contrato
+  // "pós-login = /brief".
+  if (next === "/admin" || next.startsWith("/admin/")) return fallback;
   return next;
 }
 
