@@ -34,7 +34,7 @@
  *   percent          — %
  *   long_number      — ≥ 4 dígitos consecutivos, ou número com separador de milhar
  *   date             — dd/mm, dd/mm/yy, mês/ano abreviado (nov/29), mês por extenso
- *   multiline        — ≥ 2 quebras de linha (3+ linhas) = lista
+ *   multiline        — ≥ 3 quebras de linha (4+ linhas) = lista
  *   bullet           — início de linha com *, •, -, emoji+espaço
  *   address          — "Palavra Capitalizada, 123" ou Rua/Avenida/Alameda
  *   too_long         — length > 300 chars
@@ -107,9 +107,13 @@ export function classifyContent(rawText: string): ModalityDecision {
     return { audio: false, reason: "too_long" };
   }
 
-  // Multiline — lista, não fala. Conta quebras de linha: 2+ \n = 3+ linhas.
+  // Multiline — lista/bloco estruturado, não fala. Threshold em 3+ \n
+  // (4+ linhas) porque parágrafo duplo (saudação\n\npergunta) é padrão
+  // natural da Bia e soa bem em áudio. Blocos realmente estruturados
+  // (AYA finance) têm 5+ linhas E caem em bullet/currency/address
+  // antes de chegar aqui — defesa em profundidade.
   const newlineCount = (text.match(/\n/g) ?? []).length;
-  if (newlineCount >= 2) {
+  if (newlineCount >= 3) {
     return { audio: false, reason: "multiline" };
   }
 

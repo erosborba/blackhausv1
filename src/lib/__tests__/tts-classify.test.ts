@@ -76,12 +76,22 @@ test("content 6. length > 300 → too_long", () => {
   assert.equal(classifyContent(long).reason, "too_long");
 });
 
-test("content 7. 2+ quebras de linha → multiline", () => {
-  assert.equal(classifyContent("linha 1\nlinha 2\nlinha 3").reason, "multiline");
+test("content 7. 3+ quebras de linha (4+ linhas) → multiline", () => {
+  assert.equal(
+    classifyContent("linha 1\nlinha 2\nlinha 3\nlinha 4").reason,
+    "multiline",
+  );
 });
 
 test("content 8. uma quebra de linha só → passa (não é lista)", () => {
   assert.equal(classifyContent("primeira\nsegunda").audio, true);
+});
+
+test("content 8b. parágrafo duplo curto (saudação + pergunta) → passa", () => {
+  // Padrão natural da Bia: "Ah perfeito!\n\nQual a faixa...". Duas
+  // quebras mas é fala normal com pausa de parágrafo, soa bem em áudio.
+  const reply = "Ah, perfeito! Curitiba toda então 😊\n\nQual a faixa de investimento?";
+  assert.equal(classifyContent(reply).audio, true);
 });
 
 test("content 9. bullet asterisco no início de linha → bullet", () => {
