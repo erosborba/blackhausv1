@@ -45,3 +45,20 @@ export function computeTtsCostUsd(charCount: number): number {
   const usd = (charCount * ELEVENLABS_COST_PER_MCHAR) / 1_000_000;
   return Math.round(usd * 1_000_000) / 1_000_000;
 }
+
+/**
+ * Budget check puro (Slice 4.4). Retorna `true` se `spentTodayUsd +
+ * pendingUsd <= capUsd`. `capUsd <= 0` sempre bloqueia (kill switch
+ * explícito quando operador quer desligar sem flipar `tts_enabled`).
+ *
+ * Semântica inclusiva no limite: o último centavo exato do dia ainda
+ * sai — mais generoso com o operador que configurou valor redondo.
+ */
+export function isWithinBudget(args: {
+  spentTodayUsd: number;
+  pendingUsd: number;
+  capUsd: number;
+}): boolean {
+  if (args.capUsd <= 0) return false;
+  return args.spentTodayUsd + args.pendingUsd <= args.capUsd;
+}

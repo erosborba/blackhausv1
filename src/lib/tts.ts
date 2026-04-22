@@ -34,6 +34,7 @@
 import { env } from "./env";
 import { supabaseAdmin } from "./supabase";
 import { logUsage } from "./ai-usage";
+import { getSetting } from "./settings";
 import { ttsCacheKey, computeTtsCostUsd } from "./tts-pure";
 
 // Re-export pra manter interface única ("import from tts").
@@ -73,7 +74,15 @@ export async function synthesize(input: SynthesizeInput): Promise<SynthesizeResu
   const text = input.text.trim();
   if (!text) throw new Error("synthesize: texto vazio");
 
-  const voiceId = input.voiceId ?? env.ELEVENLABS_VOICE_ID;
+  // Precedência: arg explícito > setting no DB > env. Setting permite
+  // trocar voz sem redeploy; env é o fallback pra ambientes sem DB
+  // (scripts, tests). Falha silenciosamente na leitura do setting pra
+  // não derrubar TTS por causa de DB glitch.
+  const voiceFromSetting = input.voiceId
+    ? null
+    : await getSetting("tts_voice_id", "").catch(() => "");
+  const voiceId =
+    input.voiceId ?? (voiceFromSetting || env.ELEVENLABS_VOICE_ID);
   const model = input.model ?? env.ELEVENLABS_MODEL;
   const key = ttsCacheKey({ text, voiceId, model });
   const path = `${key}.mp3`;

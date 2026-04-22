@@ -16,7 +16,7 @@ type Setting = {
 type SettingMeta = {
   label: string;
   unit: string;
-  group: "Handoff" | "RAG" | "Debounce" | "Memória" | "Follow-up" | "Mídia" | "Bridge" | "Financiamento";
+  group: "Handoff" | "RAG" | "Debounce" | "Memória" | "Follow-up" | "Mídia" | "Bridge" | "Financiamento" | "Voz (TTS)";
   inputType: "number" | "float" | "enum";
   min?: number;
   max?: number;
@@ -320,6 +320,27 @@ const META: Record<string, SettingMeta> = {
     toDisplay: (v) => (Number(v) / 100).toFixed(2), // 200 bps → "2.00"
     toStorage: (v) => String(Math.round(Number(v) * 100)),
   },
+  tts_enabled: {
+    label: "Ativar respostas em áudio (TTS)",
+    unit: "(0 = off, 1 = on)",
+    group: "Voz (TTS)",
+    inputType: "number",
+    min: 0,
+    max: 1,
+    toDisplay: (v) => (v === "true" ? "1" : "0"),
+    toStorage: (v) => (Number(v) >= 1 ? "true" : "false"),
+  },
+  tts_daily_cap_usd: {
+    label: "Teto diário de síntese (ElevenLabs)",
+    unit: "USD — ~$2 cobre ~60k chars/dia",
+    group: "Voz (TTS)",
+    inputType: "float",
+    min: 0,
+    max: 100,
+    step: 0.5,
+    toDisplay: (v) => Number(v).toFixed(2),
+    toStorage: (v) => String(Number(v)),
+  },
 };
 
 const GROUP_ORDER: SettingMeta["group"][] = [
@@ -329,6 +350,7 @@ const GROUP_ORDER: SettingMeta["group"][] = [
   "Memória",
   "Follow-up",
   "Mídia",
+  "Voz (TTS)",
   "Bridge",
   "Financiamento",
 ];

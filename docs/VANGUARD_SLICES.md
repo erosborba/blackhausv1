@@ -577,10 +577,18 @@ endereços). Dupla condição: preferência do lead **E** content-shape OK.
   "lead manda áudio com pergunta curta" → áudio; "lead manda áudio
   mas Bia responde com simulação" → texto.
 
-### [ ] 4.4 · Fallback + budget
-- Se ElevenLabs falha → manda texto
-- Budget diário configurável em `system_settings.tts_daily_cap_brl`
-- DoD: `ai_usage_log.kind='tts'` registra custo; cap funciona
+### [x] 4.4 · Fallback + budget
+- `src/lib/tts-budget.ts` — `getTtsSpendToday()` soma cost_usd de hoje
+  (UTC) onde provider='elevenlabs'. `checkTtsBudget(pendingUsd)`
+  compara com cap antes de cada síntese
+- Setting `tts_daily_cap_usd` (default $2) — operador pensa em USD,
+  que é o que ElevenLabs cobra (sem FX ruidoso); `_brl` deprecated
+- `isWithinBudget` puro em `tts-pure.ts` com 7 unit tests (inclusivo
+  no limite, cap=0 bloqueia, valores negativos defensivos)
+- Synthesize: setting `tts_voice_id` tem precedência sobre env (trocar
+  voz sem redeploy)
+- `/ajustes` ganha grupo "Voz (TTS)" com `tts_enabled` + cap USD
+- Fallback herdado de 4.3 (fail-soft pra sendText em qualquer falha)
 
 ### [ ] 4.5 · UI /inbox — bubble de áudio outbound
 - Player inline + transcript pra corretor ler

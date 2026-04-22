@@ -5,8 +5,9 @@
  *   1. Checar `tts_enabled` global (feature gate)
  *   2. Computar `leadPrefersAudio`
  *   3. Classificar conteúdo via `shouldUseAudio`
- *   4. Se áudio: presence "recording" → synthesize → sendAudio
- *   5. Se texto OU se qualquer passo acima falhar: sendText
+ *   4. Verificar budget diário (slice 4.4) — spent + estimativa do pending
+ *   5. Se áudio: presence "recording" → synthesize → sendAudio
+ *   6. Se texto OU se qualquer passo acima falhar: sendText
  *
  * Mantido fora do webhook pra que o webhook continue legível e pra que
  * outros lugares (ex.: proactive outreach em Track 5) possam reusar.
@@ -17,8 +18,10 @@
 import { getSettingBool } from "./settings";
 import { sendAudio, sendPresence, sendText } from "./evolution";
 import { synthesize } from "./tts";
+import { computeTtsCostUsd } from "./tts-pure";
 import { shouldUseAudio, type ModalitySource } from "./tts-classify";
 import { leadPrefersAudio } from "./tts-preference";
+import { checkTtsBudget } from "./tts-budget";
 
 export type OutboundReplyInput = {
   leadId: string;
@@ -78,7 +81,22 @@ export async function sendOutboundReply(
     return { modality: "text", reason: decision.reason, fellBack: false };
   }
 
-  // 4) Tenta áudio — presence "recording" só pra mimetizar humano (ghost
+  // 4) Budget check (Slice 4.4). Roda DEPOIS do classifier pra que
+  //    respostas que iriam pra texto de qualquer jeito não gastem query.
+  //    `pendingUsd` estima o custo da próxima síntese por char count —
+  //    aceita que cache hits fazem pending "sobrar" (fail-safe: erra
+  //    pra lado conservador, nunca pra overshoot).
+  const pendingUsd = computeTtsCostUsd(input.text.length);
+  const budget = await checkTtsBudget(pendingUsd);
+  if (!budget.allowed) {
+    console.warn(
+      `[tts-outbound] budget excedido: spent=$${budget.spentUsd.toFixed(4)} + pending=$${pendingUsd.toFixed(4)} > cap=$${budget.capUsd}`,
+    );
+    await sendText({ to: input.to, text: input.text, delayMs: 900 });
+    return { modality: "text", reason: "budget_exceeded", fellBack: true };
+  }
+
+  // 5) Tenta áudio — presence "recording" só pra mimetizar humano (ghost
   //    UX no WhatsApp). Fire-and-forget: se falhar não bloqueia envio.
   sendPresence(input.to, "recording").catch(() => {});
 
@@ -99,8 +117,7 @@ export async function sendOutboundReply(
       fellBack: false,
     };
   } catch (e) {
-    // 5) Fallback: TTS ou sendAudio quebrou. Cai elegante pra texto.
-    //    Slice 4.4 vai apertar aqui com budget + razões mais finas.
+    // 6) Fallback: TTS ou sendAudio quebrou. Cai elegante pra texto.
     console.error(`[tts-outbound] falha áudio, caindo pra texto:`, e);
     await sendText({ to: input.to, text: input.text, delayMs: 900 });
     return {
