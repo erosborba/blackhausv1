@@ -16,3 +16,6 @@ tsconfig.tsbuildinfo
 supabase/.temp/
 supabase/.branches/
 qr.png
+
+# TTS smoke-test artifacts (scripts/tts-test.mjs grava mp3 no cwd)
+tts-*.mp3

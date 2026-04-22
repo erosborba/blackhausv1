@@ -1,0 +1,112 @@
+/**
+ * Vanguard · Track 4 · Slice 4.3 — envio outbound com decisão áudio/texto.
+ *
+ * Encapsula o fluxo de:
+ *   1. Checar `tts_enabled` global (feature gate)
+ *   2. Computar `leadPrefersAudio`
+ *   3. Classificar conteúdo via `shouldUseAudio`
+ *   4. Se áudio: presence "recording" → synthesize → sendAudio
+ *   5. Se texto OU se qualquer passo acima falhar: sendText
+ *
+ * Mantido fora do webhook pra que o webhook continue legível e pra que
+ * outros lugares (ex.: proactive outreach em Track 5) possam reusar.
+ *
+ * Retorna qual modalidade *efetivamente* saiu + razão, pra o caller
+ * logar em `messages.media_type` e debug.
+ */
+import { getSettingBool } from "./settings";
+import { sendAudio, sendPresence, sendText } from "./evolution";
+import { synthesize } from "./tts";
+import { shouldUseAudio, type ModalitySource } from "./tts-classify";
+import { leadPrefersAudio } from "./tts-preference";
+
+export type OutboundReplyInput = {
+  leadId: string;
+  to: string;        // phone ou JID — mesmo formato aceito por sendText/sendAudio
+  text: string;
+  /**
+   * "llm" = resposta livre do answerNode → passa pelo classifier.
+   * "tool" = output de tool (finance, mcmv, fotos) → sempre texto.
+   */
+  source?: ModalitySource;
+  /**
+   * Se informado e o áudio for usado, quote no PTT a mensagem do lead.
+   */
+  quotedId?: string;
+};
+
+export type OutboundReplyResult = {
+  /** Modalidade que efetivamente saiu. */
+  modality: "audio" | "text";
+  /** Slug da decisão (ou motivo do fallback). */
+  reason: string;
+  /** true quando houve intenção de áudio mas caiu pra texto (falha TTS/envio). */
+  fellBack: boolean;
+};
+
+/**
+ * Envia `text` pro `to`, decidindo se vai como PTT ou texto comum.
+ * Sempre resolve — nunca throws; falhas viram fallback pra sendText.
+ *
+ * (O throw do sendText propaga; considera-se erro crítico se nem texto
+ * consegue sair. Aí o caller decide o que fazer — hoje ninguém captura.)
+ */
+export async function sendOutboundReply(
+  input: OutboundReplyInput,
+): Promise<OutboundReplyResult> {
+  const source = input.source ?? "llm";
+
+  // 1) Feature gate global. Default `false` até operador virar.
+  const ttsEnabled = await getSettingBool("tts_enabled", false);
+  if (!ttsEnabled) {
+    await sendText({ to: input.to, text: input.text, delayMs: 900 });
+    return { modality: "text", reason: "tts_disabled", fellBack: false };
+  }
+
+  // 2) Preferência do lead (last 3 inbound com algum áudio).
+  const prefersAudio = await leadPrefersAudio(input.leadId);
+
+  // 3) Classifier.
+  const decision = shouldUseAudio({
+    text: input.text,
+    leadPrefersAudio: prefersAudio,
+    source,
+  });
+
+  if (!decision.audio) {
+    await sendText({ to: input.to, text: input.text, delayMs: 900 });
+    return { modality: "text", reason: decision.reason, fellBack: false };
+  }
+
+  // 4) Tenta áudio — presence "recording" só pra mimetizar humano (ghost
+  //    UX no WhatsApp). Fire-and-forget: se falhar não bloqueia envio.
+  sendPresence(input.to, "recording").catch(() => {});
+
+  try {
+    const { buffer, cacheHit } = await synthesize({
+      text: input.text,
+      leadId: input.leadId,
+    });
+    await sendAudio({
+      to: input.to,
+      audioBase64: buffer.toString("base64"),
+      delayMs: 900,
+      quotedId: input.quotedId,
+    });
+    return {
+      modality: "audio",
+      reason: cacheHit ? "audio_cache_hit" : "audio_synth",
+      fellBack: false,
+    };
+  } catch (e) {
+    // 5) Fallback: TTS ou sendAudio quebrou. Cai elegante pra texto.
+    //    Slice 4.4 vai apertar aqui com budget + razões mais finas.
+    console.error(`[tts-outbound] falha áudio, caindo pra texto:`, e);
+    await sendText({ to: input.to, text: input.text, delayMs: 900 });
+    return {
+      modality: "text",
+      reason: "audio_failed",
+      fellBack: true,
+    };
+  }
+}

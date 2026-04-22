@@ -549,7 +549,7 @@ endereços). Dupla condição: preferência do lead **E** content-shape OK.
 - `scripts/tts-test.mjs` ganhou `--send=<phone>` — DoD E2E fecha com
   `node scripts/tts-test.mjs "oi!" --send=5511...` chegando PTT
 
-### [ ] 4.3 · Decision layer — dupla condição
+### [x] 4.3 · Decision layer — dupla condição
 - Novo node `decide-modality` no graph, rodando *depois* do answer e
   *antes* do send. Decide: texto ou áudio, baseado em:
 

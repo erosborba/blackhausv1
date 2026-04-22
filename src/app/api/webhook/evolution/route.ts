@@ -36,6 +36,7 @@ import {
 } from "@/lib/media";
 import { getSetting } from "@/lib/settings";
 import { emitLeadEvent } from "@/lib/lead-events";
+import { sendOutboundReply } from "@/lib/tts-outbound";
 
 const HELP_TEXT = `👋 Comandos:
 • Responder (quote) uma notificação/mensagem minha → eu repasso pro lead.
@@ -323,13 +324,24 @@ async function runAgentTurn(args: { lead: Lead; combinedText: string; sendTarget
   });
 
   if (reply) {
-    await sendText({ to: sendTarget, text: reply, delayMs: 900 });
+    // Decisão áudio × texto (Vanguard 4.3). O wrapper aplica feature gate
+    // `tts_enabled`, checa preferência do lead, roda classifier de conteúdo
+    // e cai de volta pra texto em qualquer falha. `content` preservado
+    // sempre com o texto — serve de transcript pra UI e pra lead memory.
+    const outbound = await sendOutboundReply({
+      leadId: lead.id,
+      to: sendTarget,
+      text: reply,
+      source: "llm",
+    });
     await appendMessage({
       leadId: lead.id,
       direction: "outbound",
       role: "assistant",
       content: reply,
       sources: sources.length > 0 ? sources : null,
+      mediaType: outbound.modality === "audio" ? "audio" : null,
+      mediaMime: outbound.modality === "audio" ? "audio/mpeg" : null,
     });
   }
 
