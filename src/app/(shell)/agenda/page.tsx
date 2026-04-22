@@ -24,7 +24,7 @@ export default async function AgendaPage({
   searchParams: Promise<{ tab?: string; day?: string }>;
 }) {
   const sp = await searchParams;
-  const tab: AgendaTab =
+  const initialTab: AgendaTab =
     sp?.tab === "follow-ups" || sp?.tab === "visitas" ? sp.tab : "hoje";
 
   const ref = sp?.day ? new Date(`${sp.day}T12:00:00-03:00`) : new Date();
@@ -85,7 +85,7 @@ export default async function AgendaPage({
         </header>
 
         <AgendaTabs
-          tab={tab}
+          initialTab={initialTab}
           visitsDay={visitsDay}
           pendingFu={normalizeFu(pendingFu.data ?? [])}
           sentFu={normalizeFu(sentFu.data ?? [])}

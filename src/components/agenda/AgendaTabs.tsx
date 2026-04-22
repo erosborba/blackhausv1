@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { FollowUpRowData, AgendaTab } from "./types";
 import type { VisitWithContext } from "@/lib/visits";
 import { VISIT_STATUS_LABEL, VISIT_STATUS_TONE } from "@/lib/visits";
@@ -12,28 +12,44 @@ const TABS: { key: AgendaTab; label: string }[] = [
   { key: "visitas", label: "Visitas" },
 ];
 
+/**
+ * Estado da aba é local — o server já carregou os 3 datasets (hoje, fu,
+ * semana), logo trocar tab não precisa de novo SSR. URL é atualizada
+ * via `history.replaceState` pra manter deep-link.
+ */
 export function AgendaTabs({
-  tab,
+  initialTab,
   visitsDay,
   pendingFu,
   sentFu,
   visitsWeek,
   dayIso,
 }: {
-  tab: AgendaTab;
+  initialTab: AgendaTab;
   visitsDay: VisitWithContext[];
   pendingFu: FollowUpRowData[];
   sentFu: FollowUpRowData[];
   visitsWeek: VisitWithContext[];
   dayIso: string;
 }) {
+  const [tab, setTab] = useState<AgendaTab>(initialTab);
+
+  function switchTab(next: AgendaTab) {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === "hoje") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState({}, "", url.toString());
+  }
+
   return (
     <>
       <nav className="agenda-tabs" role="tablist">
         {TABS.map((t) => (
-          <Link
+          <button
             key={t.key}
-            href={`/agenda?tab=${t.key}&day=${dayIso}`}
+            type="button"
+            onClick={() => switchTab(t.key)}
             className={`agenda-tab ${t.key === tab ? "on" : ""}`}
             role="tab"
             aria-selected={t.key === tab}
@@ -48,7 +64,7 @@ export function AgendaTabs({
             {t.key === "visitas" ? (
               <span className="agenda-tab-count">{visitsWeek.length}</span>
             ) : null}
-          </Link>
+          </button>
         ))}
       </nav>
 

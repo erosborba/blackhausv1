@@ -1,32 +1,14 @@
-﻿import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Topbar } from "@/components/shell/Topbar";
 import { supabaseAdmin } from "@/lib/supabase";
 import { can } from "@/lib/auth/role";
 import { getCurrentRole } from "@/lib/auth/role-server";
 import type { DraftAction, DraftConfidence } from "@/lib/drafts";
-import { RevisaoTabs } from "@/components/revisao/RevisaoTabs";
-import {
-  approvalPct,
-  type DraftWithRefs,
-  type RevisaoStats,
-} from "@/components/revisao/types";
+import type { DraftWithRefs, RevisaoStats } from "@/components/revisao/types";
+import { RevisaoShell } from "./RevisaoShell";
 import "./revisao.css";
 
 export const dynamic = "force-dynamic";
 
-/**
- * /revisao — painel de revisão dos drafts da Bia + learnings acumulados.
- *
- * Succeeds /admin/drafts (que vira redirect). Dois propósitos:
- *  1. Medir taxa de aprovação por nível de confiança — o número que
- *     governa quando podemos ligar auto-send (alvo: alta ≥ 95%).
- *  2. Dar fricção mínima pro corretor aprovar/editar o draft proposto
- *     sem ter que abrir o lead — útil pra pilhas de drafts pendentes.
- *
- * `draft_learnings` (padrões extraídos das edições) ainda não tem
- * migration — mostramos placeholder na aba "Aprendizado" até Phase 5.
- */
 const WINDOW_DAYS = 30;
 const RECENT_LIMIT = 60;
 
@@ -41,68 +23,20 @@ export default async function RevisaoPage({
   if (!can(role, "revisao.view")) redirect("/brief");
 
   const sp = await searchParams;
-  const tab: TabKey =
+  const initialTab: TabKey =
     sp?.tab === "pendentes" || sp?.tab === "aprendizado" ? sp.tab : "overview";
 
   const drafts = await loadDrafts();
   const stats = computeStats(drafts);
   const canApprove = can(role, "revisao.approve");
-  const overallPct = approvalPct(stats);
 
   return (
-    <>
-      <Topbar crumbs={[{ label: "Revisão" }, { label: tabLabel(tab) }]} />
-      <main className="page-body revisao-page">
-        <header className="revisao-head">
-          <div>
-            <h1 className="display">Revisão</h1>
-            <p className="revisao-sub">
-              Drafts propostos pela Bia nos últimos {WINDOW_DAYS} dias.{" "}
-              {stats.total} propostas
-              {overallPct != null ? ` · ${overallPct}% aprovados sem edição` : ""}.
-            </p>
-          </div>
-          <div className="revisao-tabs-nav">
-            <TabLink active={tab === "overview"} href="/revisao">
-              Overview
-            </TabLink>
-            <TabLink active={tab === "pendentes"} href="/revisao?tab=pendentes">
-              Pendentes
-              {stats.proposed > 0 ? (
-                <span className="tab-badge">{stats.proposed}</span>
-              ) : null}
-            </TabLink>
-            <TabLink active={tab === "aprendizado"} href="/revisao?tab=aprendizado">
-              Aprendizado
-            </TabLink>
-          </div>
-        </header>
-
-        <RevisaoTabs tab={tab} drafts={drafts} stats={stats} canApprove={canApprove} />
-      </main>
-    </>
-  );
-}
-
-function tabLabel(t: TabKey): string {
-  if (t === "pendentes") return "Pendentes";
-  if (t === "aprendizado") return "Aprendizado";
-  return "Overview";
-}
-
-function TabLink({
-  active,
-  href,
-  children,
-}: {
-  active: boolean;
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link href={href} className={`revisao-tab ${active ? "is-active" : ""}`}>
-      {children}
-    </Link>
+    <RevisaoShell
+      initialTab={initialTab}
+      drafts={drafts}
+      stats={stats}
+      canApprove={canApprove}
+    />
   );
 }
 
@@ -124,10 +58,6 @@ async function loadDrafts(): Promise<DraftWithRefs[]> {
   return normalizeDrafts((data ?? []) as unknown[]);
 }
 
-/**
- * Mesmo tratamento que /agenda: Supabase devolve `leads` e `agents` como
- * arrays mesmo quando a FK é 1:1. Flatten pro shape que a UI consome.
- */
 function normalizeDrafts(rows: unknown[]): DraftWithRefs[] {
   return rows.map((raw) => {
     const r = raw as Record<string, unknown> & { leads?: unknown; agents?: unknown };

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { InboxItem } from "./types";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -88,13 +89,14 @@ function fmtName(item: InboxItem) {
   return item.full_name ?? item.push_name ?? item.phone;
 }
 
-export function InboxRail({
-  items,
-  activeId,
-}: {
-  items: InboxItem[];
-  activeId: string | null;
-}) {
+function useActiveLeadId(): string | null {
+  const pathname = usePathname();
+  const m = pathname?.match(/^\/inbox\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+export function InboxRail({ items }: { items: InboxItem[] }) {
+  const activeId = useActiveLeadId();
   const { featured, overflowCount } = classifyItems(items);
 
   if (featured.length === 0) return null;

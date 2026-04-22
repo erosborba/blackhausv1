@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { InboxItem } from "./types";
 import { ConvListItem } from "./ConvList";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -45,13 +46,10 @@ function groupItems(items: InboxItem[]): {
  * Painel esquerdo do inbox — lista de conversas com seções.
  * Busca + filtros topo; polling 15s.
  */
-export function PriorityRail({
-  activeId,
-  initial,
-}: {
-  activeId: string | null;
-  initial: InboxItem[];
-}) {
+export function PriorityRail({ initial }: { initial: InboxItem[] }) {
+  const pathname = usePathname();
+  const activeId = pathname?.match(/^\/inbox\/([^/]+)/)?.[1] ?? null;
+
   const [items, setItems] = useState<InboxItem[]>(initial);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
