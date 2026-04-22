@@ -6,7 +6,7 @@ name: cleanup-cron
 # Setup no GitHub:
 #   Settings → Secrets and variables → Actions → New repository secret
 #     - CRON_SECRET   (mesma string setada no Railway)
-#     - APP_URL       (ex.: https://blackhaus.site)   <- sem barra no final
+#     - APP_URL       (ex.: https://lumihaus.com.br)   <- sem barra no final
 #
 # Schedule: `0 5 * * *` = 05:00 UTC diário. Ajuste se quiser outro horário.
 # `workflow_dispatch` permite rodar manualmente pelo botão "Run workflow"

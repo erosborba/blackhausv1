@@ -131,10 +131,10 @@ export async function rescheduleVisit(
     // sem UID estável), usa o id novo, o pior caso é duplicar evento.
     try {
       const ics = buildIcs({
-        uid: `visit-${visit.id}@blackhaus`,
+        uid: `visit-${visit.id}@lumihaus`,
         startAt: newWhen.toISOString(),
         durationMin: 60,
-        summary: "Visita Blackhaus (reagendada)",
+        summary: "Visita Lumihaus (reagendada)",
         description: text,
         method: "REQUEST",
         sequence: 1,

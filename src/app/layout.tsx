@@ -6,13 +6,13 @@ import "@/components/shell/shell.css";
 import { PWARegister } from "@/components/pwa/PWARegister";
 
 export const metadata: Metadata = {
-  title: "Blackhaus SDR",
+  title: "Lumihaus SDR",
   description: "SDR de empreendimentos novos via WhatsApp",
   manifest: "/manifest.webmanifest",
-  applicationName: "Blackhaus SDR",
+  applicationName: "Lumihaus SDR",
   appleWebApp: {
     capable: true,
-    title: "Blackhaus",
+    title: "Lumihaus",
     statusBarStyle: "black-translucent",
   },
   icons: {

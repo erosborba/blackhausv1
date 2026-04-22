@@ -347,7 +347,7 @@ Substitui por dois slices leves que fecham os gaps reais:
   escape de texto, VALARM 1h antes) + 10 unit tests.
 - `evolution.ts > sendDocument` chama `/message/sendMedia` com
   `mediatype: document`.
-- `book_visit` monta `.ics` com UID estável `visit-<id>@blackhaus`
+- `book_visit` monta `.ics` com UID estável `visit-<id>@lumihaus`
   (reagendamento preserva UID + incrementa SEQUENCE=1 +
   `METHOD:REQUEST` pra calendar substituir evento existente).
 - LOCATION best-effort via empreendimento (endereco + bairro + cidade).

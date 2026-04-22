@@ -13,7 +13,7 @@
  *   - Demais (noite, madrugada, fins de semana) → "amanhã cedo"
  *
  * Função pura: recebe `now` como parâmetro pra ser determinística e
- * testável. Timezone fixo em America/Sao_Paulo (operação da Blackhaus).
+ * testável. Timezone fixo em America/Sao_Paulo (operação da Lumihaus).
  *
  * Invariants:
  *   - I-6: mesmo `now` + mesmo `kind` = mesmo texto

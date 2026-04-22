@@ -9,7 +9,7 @@ import { buildIcs, icsToBase64 } from "../ics.ts";
 
 test("ics 1. evento básico tem todas as linhas obrigatórias + CRLF", () => {
   const out = buildIcs({
-    uid: "visit-123@blackhaus",
+    uid: "visit-123@lumihaus",
     startAt: "2026-05-10T14:00:00.000Z",
     durationMin: 60,
     summary: "Visita - Jardim das Acácias",
@@ -22,12 +22,12 @@ test("ics 1. evento básico tem todas as linhas obrigatórias + CRLF", () => {
   // Cabeçalhos obrigatórios
   assert.match(out, /BEGIN:VCALENDAR\r\n/);
   assert.match(out, /VERSION:2\.0\r\n/);
-  assert.match(out, /PRODID:-\/\/Blackhaus/);
+  assert.match(out, /PRODID:-\/\/Lumihaus/);
   assert.match(out, /BEGIN:VEVENT/);
   assert.match(out, /END:VEVENT/);
   assert.match(out, /END:VCALENDAR/);
   // UID + DTSTART em UTC compact
-  assert.match(out, /UID:visit-123@blackhaus/);
+  assert.match(out, /UID:visit-123@lumihaus/);
   assert.match(out, /DTSTART:20260510T140000Z/);
   assert.match(out, /DTEND:20260510T150000Z/);
 });
@@ -97,12 +97,12 @@ test("ics 7. organizer + attendee com CN renderizados", () => {
     uid: "u-6",
     startAt: "2026-05-10T14:00:00.000Z",
     summary: "x",
-    organizerEmail: "bia@blackhaus.im",
+    organizerEmail: "bia@lumihaus.im",
     organizerName: "Bia",
-    attendeeEmail: "eros@blackhaus.im",
+    attendeeEmail: "eros@lumihaus.im",
     attendeeName: "Eros Borba",
   });
-  assert.match(out, /ORGANIZER;CN=Bia:mailto:bia@blackhaus\.im/);
+  assert.match(out, /ORGANIZER;CN=Bia:mailto:bia@lumihaus\.im/);
   assert.match(out, /ATTENDEE;CN=Eros Borba;RSVP=TRUE/);
 });
 

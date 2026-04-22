@@ -1,4 +1,4 @@
-# Plano de Reconstrução de UI/UX — Blackhaus
+# Plano de Reconstrução de UI/UX — Lumihaus
 
 Autor: design+eng handoff
 Data: 2026-04-20

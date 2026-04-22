@@ -1,5 +1,5 @@
 -- =========================================================
--- Blackhaus SDR — initial schema migration
+-- Lumihaus SDR — initial schema migration
 -- Idempotente: dropa as tabelas/funcs do projeto (CASCADE) antes de recriar.
 -- =========================================================
 

@@ -1,4 +1,4 @@
-/* blackhaus — design tokens (LIGHT theme, off-white + deep blue, subtle ~30% neumorphism).
+/* lumihaus — design tokens (LIGHT theme, off-white + deep blue, subtle ~30% neumorphism).
  * Fonte: project/hifi/tokens.css (mockup).
  * Vars em :root mas estilo aplicado via .bh — rotas /admin legacy ficam intactas
  * porque usam CSS próprio, sem consumir --bg/--ink/etc.

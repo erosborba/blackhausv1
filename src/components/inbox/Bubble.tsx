@@ -39,7 +39,7 @@ function bubbleVariant(m: ThreadMessage): "them" | "ai" | "me" {
 
 function whoLabel(variant: "them" | "ai" | "me"): string {
   if (variant === "them") return "Lead";
-  if (variant === "ai") return "IA · blackhaus";
+  if (variant === "ai") return "IA · lumihaus";
   return "Você";
 }
 

@@ -73,7 +73,7 @@ function formatHandoffNotification(args: {
   // 🔴 alta, 🟡 média, 🟢 baixa. Sem urgency (ex.: escalação manual) → 🔔 genérico.
   const urgencyBadge = args.urgency ? HANDOFF_URGENCY_EMOJI[args.urgency] : "🔔";
   const urgencyLine = args.urgency ? ` · urgência ${args.urgency}` : "";
-  return `${urgencyBadge} Lead quente — Blackhaus${urgencyLine}
+  return `${urgencyBadge} Lead quente — Lumihaus${urgencyLine}
 
 ${args.leadName} · ${args.leadPhone}
 Motivo: ${args.reason}${briefBlock}
@@ -209,7 +209,7 @@ async function notifyAgentAndSchedule(args: {
   excludeIds: string[];
   attempts: number;
 }) {
-  const appBaseUrl = process.env.APP_BASE_URL ?? "https://blackhaus.site";
+  const appBaseUrl = process.env.APP_BASE_URL ?? "https://lumihaus.com.br";
   const text = formatHandoffNotification({
     leadName: args.leadName,
     leadPhone: args.leadPhone,

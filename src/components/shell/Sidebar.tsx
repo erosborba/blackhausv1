@@ -24,8 +24,8 @@ export function Sidebar({
 
   return (
     <aside className="sidebar" aria-label="Navegação principal">
-      <Link href="/brief" className="logo" aria-label="Blackhaus">
-        b
+      <Link href="/brief" className="logo" aria-label="Lumihaus">
+        l
       </Link>
       {primary.map((item) => (
         <SideLink key={item.id} item={item} active={isActive(pathname, item.href)} />

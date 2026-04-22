@@ -164,10 +164,10 @@ export async function bookVisit(input: BookVisitInput): Promise<BookVisitOutput>
     //     Falha silenciosa: o evento está confirmado, o anexo é bônus.
     try {
       const ics = buildIcs({
-        uid: `visit-${visit.id}@blackhaus`,
+        uid: `visit-${visit.id}@lumihaus`,
         startAt: visit.scheduled_at,
         durationMin: durMin,
-        summary: empNome ? `Visita — ${empNome}` : "Visita Blackhaus",
+        summary: empNome ? `Visita — ${empNome}` : "Visita Lumihaus",
         description: confirmation,
         location: empLocation ?? undefined,
         method: "REQUEST",

@@ -26,7 +26,7 @@ export default async function Page() {
   const [overview, evo] = await Promise.all([loadOverview(), loadEvolution()]);
   return (
     <main style={{ maxWidth: 920, margin: "40px auto", padding: 24 }}>
-      <h1 style={{ margin: 0 }}>Blackhaus SDR</h1>
+      <h1 style={{ margin: 0 }}>Lumihaus SDR</h1>
       <p style={{ opacity: 0.7, marginTop: 4 }}>
         Painel rápido — leads, empreendimentos e estado da instância WhatsApp.
       </p>

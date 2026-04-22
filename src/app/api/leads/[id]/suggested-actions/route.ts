@@ -35,7 +35,7 @@ type CacheEntry = {
 const CACHE = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 30_000;
 
-const SYSTEM = `Você é a Bia SDR da Blackhaus. Com base no estado do lead e nas últimas mensagens, proponha 3 ações/respostas que o corretor pode disparar AGORA. Cada ação é um draft de mensagem curta (1-3 frases), pronta pra enviar pelo WhatsApp.
+const SYSTEM = `Você é a Bia SDR da Lumihaus. Com base no estado do lead e nas últimas mensagens, proponha 3 ações/respostas que o corretor pode disparar AGORA. Cada ação é um draft de mensagem curta (1-3 frases), pronta pra enviar pelo WhatsApp.
 
 Regras:
 - Foque no próximo passo concreto: qualificar campo faltante, marcar visita, responder objeção, pedir decisor, oferecer material.

@@ -335,7 +335,7 @@ async function sendOne(followUpId: string, leadId: string, step: number): Promis
 // MESSAGE GENERATION
 // ============================================================
 
-const SYSTEM_FOLLOWUP = `Você é a Bia, SDR da imobiliária Blackhaus, escrevendo uma mensagem de follow-up via WhatsApp para um lead que não respondeu há alguns dias.
+const SYSTEM_FOLLOWUP = `Você é a Bia, SDR da imobiliária Lumihaus, escrevendo uma mensagem de follow-up via WhatsApp para um lead que não respondeu há alguns dias.
 
 Regras:
 - Tom humano, respeitoso, SEM parecer robô ou spam.

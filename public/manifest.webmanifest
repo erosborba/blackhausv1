@@ -1,6 +1,6 @@
 {
-  "name": "Blackhaus SDR",
-  "short_name": "Blackhaus",
+  "name": "Lumihaus SDR",
+  "short_name": "Lumihaus",
   "description": "SDR de empreendimentos novos via WhatsApp",
   "start_url": "/brief",
   "scope": "/",

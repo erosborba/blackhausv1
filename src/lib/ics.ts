@@ -9,7 +9,7 @@
  * Função pura, zero I/O, unit-testável. Formato mínimo válido:
  *   BEGIN:VCALENDAR
  *   VERSION:2.0
- *   PRODID:-//Blackhaus//Bia//PT
+ *   PRODID:-//Lumihaus//Bia//PT
  *   BEGIN:VEVENT
  *   UID:<stable>
  *   DTSTAMP:<now UTC>
@@ -37,7 +37,7 @@ export type IcsEvent = {
   summary: string;
   description?: string;
   location?: string;
-  organizerEmail?: string;    // opcional, ex: "bia@blackhaus.im"
+  organizerEmail?: string;    // opcional, ex: "bia@lumihaus.com.br"
   organizerName?: string;
   attendeeEmail?: string;     // corretor
   attendeeName?: string;
@@ -62,7 +62,7 @@ export function buildIcs(event: IcsEvent): string {
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Blackhaus//Bia//PT",
+    "PRODID:-//Lumihaus//Bia//PT",
     "CALSCALE:GREGORIAN",
     `METHOD:${event.method ?? "PUBLISH"}`,
     "BEGIN:VEVENT",

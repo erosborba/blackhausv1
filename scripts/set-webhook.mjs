@@ -42,9 +42,9 @@ const urlOverride = args.find((a) => a.startsWith("--url="))?.slice(6);
 
 const EVO_URL = (env.EVOLUTION_BASE_URL || "").replace(/\/$/, "");
 const EVO_KEY = env.EVOLUTION_API_KEY;
-const INSTANCE = env.EVOLUTION_INSTANCE || "blackhaus";
+const INSTANCE = env.EVOLUTION_INSTANCE || "lumihaus";
 const DEV_URL = (env.APP_BASE_URL || "").replace(/\/$/, "");
-const PROD_URL = (env.APP_PROD_URL || "https://blackhaus.site").replace(/\/$/, "");
+const PROD_URL = (env.APP_PROD_URL || "https://lumihaus.com.br").replace(/\/$/, "");
 
 if (!EVO_URL || !EVO_KEY) {
   console.error("[webhook] faltando EVOLUTION_BASE_URL ou EVOLUTION_API_KEY no .env.local");

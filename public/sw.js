@@ -1,4 +1,4 @@
-/* Blackhaus SDR — Service Worker
+/* Lumihaus SDR — Service Worker
  *
  * Estratégia deliberadamente conservadora:
  *   - HTML/páginas: NETWORK-FIRST com fallback pra cache (evita mostrar
@@ -13,7 +13,7 @@
  * sync/push ainda.
  */
 
-const VERSION = "bh-v1";
+const VERSION = "lh-v1";
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGES_CACHE = `${VERSION}-pages`;
 
@@ -102,7 +102,7 @@ async function networkFirst(req) {
     if (cached) return cached;
     // Última linha — página offline mínima inline.
     return new Response(
-      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Offline · Blackhaus</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#0b0b0d;color:#e7e7ea;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;text-align:center}h1{font-weight:300;font-size:28px;margin:0 0 8px}p{color:#8f8f9a;font-size:14px;max-width:360px;line-height:1.55}</style></head><body><div><h1>Sem conexão</h1><p>Você está offline. Quando a conexão voltar, esta página vai recarregar automaticamente.</p></div><script>window.addEventListener("online",()=>location.reload())</script></body></html>`,
+      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Offline · Lumihaus</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#0b0b0d;color:#e7e7ea;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;text-align:center}h1{font-weight:300;font-size:28px;margin:0 0 8px}p{color:#8f8f9a;font-size:14px;max-width:360px;line-height:1.55}</style></head><body><div><h1>Sem conexão</h1><p>Você está offline. Quando a conexão voltar, esta página vai recarregar automaticamente.</p></div><script>window.addEventListener("online",()=>location.reload())</script></body></html>`,
       { headers: { "content-type": "text/html; charset=utf-8" }, status: 503 },
     );
   }
