@@ -177,6 +177,36 @@ Tier 3 é qualidade de conversa — itens abaixo em ordem tentativa de prioridad
   roda em PR.
   **Custo**: infra ~4h, primeiros 20 fixtures ~2h.
 
+### Tier 4 — próxima iteração (compromisso dated)
+
+- [ ] **Bia tool_use — fase B (tabela de preços).** A fase A entregou
+  `TABELA_PRECOS_MATCH` como pre-tool-call determinístico em
+  `src/agent/tabela-precos-context.ts` (regex/heurística decide qual tool
+  chamar, resultado injetado no system antes de `answerNode`). Resolve o
+  caso comum (número de unidade, filtro por tipologia+preço, listar
+  tipologias) sem mexer no loop de execução. Limitações conhecidas:
+  - Pergunta mista ("tem 2q até 700k com vista?") quebra em 1 sub-intent
+    só; a Bia perde nuance.
+  - Heurística de número de unidade confunde "2030" (ano da entrega) com
+    unidade se o contexto ambíguo coincidir.
+  - Quando o lead encadeia "e a 1812?" depois da 1811, a resolução do
+    empreendimento depende de leadMemory ou retrievedSources — frágil.
+
+  **Entrega fase B**: promover pra `tool_use` nativo no `answerNode`.
+  Claude decide sozinho quando chamar `consultar_unidade`,
+  `filtrar_unidades`, `listar_tipologias`, `resumo_tabela_precos` (já
+  definidas em `src/agent/tools/`). Isso reabre o loop `stop_reason ===
+  "tool_use"` e o modelo pode encadear calls (ex: lista tipologias → filtra
+  studio → consulta unidade específica).
+
+  **Custo estimado**: ~6h. Planejar pra 1-2 sprints após entrega da fase A
+  rodar em produção e amadurecer (quero dados de acurácia do pre-tool-call
+  antes de mexer no answerNode). Removendo `buildTabelaPrecosBlock` do
+  retrieveNode — mantemos o código como fallback.
+
+  **Arquivo**: `src/agent/nodes.ts:retrieveNode` (remover a chamada),
+  `src/agent/nodes.ts:answerNode` (adicionar tools + loop).
+
 ### Além-tier — quando escalar
 
 - [ ] **Multi-tenant.** Hoje é single-tenant implícito (uma imobiliária,

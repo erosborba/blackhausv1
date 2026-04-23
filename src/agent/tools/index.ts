@@ -62,3 +62,27 @@ export {
   type SendEmpreendimentoBookingInput,
   type SendEmpreendimentoBookingOutput,
 } from "./send-empreendimento-booking";
+
+export {
+  consultarUnidade,
+  type ConsultarUnidadeInput,
+  type ConsultarUnidadeOutput,
+} from "./consultar-unidade";
+
+export {
+  filtrarUnidades,
+  type FiltrarUnidadesInput,
+  type FiltrarUnidadesOutput,
+} from "./filtrar-unidades";
+
+export {
+  listarTipologias,
+  type ListarTipologiasInput,
+  type ListarTipologiasOutput,
+} from "./listar-tipologias";
+
+export {
+  resumoTabelaPrecos,
+  type ResumoTabelaPrecosInput,
+  type ResumoTabelaPrecosOutput,
+} from "./resumo-tabela-precos";

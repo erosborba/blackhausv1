@@ -4,6 +4,7 @@ import type { BaseMessage } from "@langchain/core/messages";
 import { chatModel } from "@/lib/anthropic";
 import { ROUTER_SYSTEM, SYSTEM_SDR, recommendSystem } from "./prompts";
 import { norm, searchByQualification, searchSemantic } from "./retrieval";
+import { buildTabelaPrecosBlock } from "./tabela-precos-context";
 import type {
   SDRStateType,
   Intent,
@@ -381,6 +382,37 @@ export async function retrieveNode(state: SDRStateType) {
     sources = r.items;
     // Busca estruturada: se achou algo, é "strong" (casou critérios duros).
     confidence = context ? "strong" : "none";
+  }
+
+  // Pre-tool-call (fase A): detecta se a pergunta exige consulta na tabela
+  // de preços estruturada (número de unidade, tipologia+faixa, listar
+  // tipologias). Se sim, chama a tool e injeta bloco TABELA_PRECOS_MATCH
+  // no retrieved. Isso promove a confidence pra strong (valores são
+  // determinísticos, vieram direto do banco).
+  //
+  // Fase B (iteração próxima): substituir por tool_use nativo no
+  // answerNode. Ver docs/TECH_DEBT.md "Bia tool_use — fase B".
+  if (
+    state.intent === "duvida_empreendimento" ||
+    state.intent === "qualificar" ||
+    state.intent === "agendar"
+  ) {
+    try {
+      const tabelaBlock = await buildTabelaPrecosBlock({
+        lastUserText: userText,
+        leadMemory: state.leadMemory ?? "",
+        retrievedSources: sources,
+      });
+      if (tabelaBlock) {
+        context = context ? `${context}\n\n---\n\n${tabelaBlock}` : tabelaBlock;
+        // Valores da tabela são determinísticos — elevamos pra strong.
+        confidence = "strong";
+      }
+    } catch (e) {
+      // Falha aqui não deve matar o turno. Logamos e seguimos com o RAG
+      // vetorial normal (comportamento pré-tabela).
+      console.error("[agent] tabela-precos block failed:", e instanceof Error ? e.message : e);
+    }
   }
 
   return { retrieved: context, retrievedConfidence: confidence, retrievedSources: sources };

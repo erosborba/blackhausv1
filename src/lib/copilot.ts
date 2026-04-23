@@ -3,6 +3,10 @@ import { env } from "./env";
 import { supabaseAdmin } from "./supabase";
 import { searchByQualification, searchSemantic } from "@/agent/retrieval";
 import {
+  consultarUnidade,
+  filtrarUnidades,
+  listarTipologias,
+  resumoTabelaPrecos,
   sendEmpreendimentoBooking,
   sendEmpreendimentoFotos,
 } from "@/agent/tools";
@@ -59,6 +63,12 @@ Você NUNCA inventa preço, endereço, metragem, diferencial, status ou qualific
 • **propor_resposta** — você registra um draft pronto pro lead. O sistema entrega numa mensagem separada pro corretor copiar/aprovar limpo. Não escreva o texto do draft na sua resposta depois de chamar a tool; só comente brevemente (ex.: "Mandei um draft pro João separado aqui 👇").
 • **enviar_fotos_empreendimento** — envia DIRETO pro WhatsApp do lead as fotos do empreendimento (até 4). Use quando o corretor pedir ("manda as fotos do Aya pro João", "envia a fachada pra ele"). Pode filtrar por categoria (fachada, lazer, decorado, planta, vista). Side-effect real — só chame se o corretor pediu claramente.
 • **enviar_booking_empreendimento** — envia o PDF de apresentação/book do empreendimento DIRETO pro WhatsApp do lead. Use quando o corretor pedir ("manda o book do Aya pro João"). Side-effect real — só chame se o corretor pediu claramente.
+• **consultar_unidade** — olha UMA unidade específica na tabela de preços cadastrada (por número: "1811", "301", "L01"). Retorna plano de pagamento completo (sinal, mensais, reforços, saldo). Use quando o corretor ou lead perguntar de unidade específica.
+• **filtrar_unidades** — lista unidades disponíveis filtrando por tipologia/preço/área/andar. Use pra "opções até 400k", "studios disponíveis", "2 quartos entre 500 e 700k".
+• **listar_tipologias** — resume quais tipologias existem com preço-a-partir e contagem de disponíveis. Use pra "o que tem pra vender no Aya?".
+• **resumo_tabela_precos** — visão geral da tabela cadastrada (contagem, faixa de preço, entrega, disclaimers). Use pra "me conta do Aya" em alto nível.
+
+**REGRA DURA — valores da tabela de preços:** quando qualquer dessas 4 tools retornar um valor monetário, cite EXATAMENTE como está no retorno, sem reformatar casas decimais, sem arredondar, sem "~". Ex: se a tool diz 393714.73, você escreve R$ 393.714,73 — não "R$ 394k", não "aprox. R$ 393 mil".
 
 # Quando usar propor_resposta
 Use quando o corretor pedir explicitamente: "redige pra ele", "sugere resposta", "manda um texto", "responde o X", "bota um draft", "escreve pra mim".
@@ -191,6 +201,63 @@ const TOOLS: ToolSchema[] = [
         },
       },
       required: ["empreendimento_nome", "lead_telefone"],
+    },
+  },
+  {
+    name: "consultar_unidade",
+    description:
+      "Consulta uma unidade específica pelo número na tabela de preços cadastrada do empreendimento. Retorna plano de pagamento completo (sinal, parcelas mensais, reforços semestrais, saldo final), área, tipologia e status. Use sempre que o lead/corretor citar número de unidade — não dê palpite, sempre chame a tool.",
+    input_schema: {
+      type: "object",
+      properties: {
+        empreendimento_nome: { type: "string", description: "Nome do empreendimento (ex: 'Aya'). Match case-insensitive sem acento." },
+        numero: { type: "string", description: "Número da unidade como citado pelo lead (ex: '1811', '301', 'L01')." },
+      },
+      required: ["empreendimento_nome", "numero"],
+    },
+  },
+  {
+    name: "filtrar_unidades",
+    description:
+      "Lista unidades disponíveis na tabela de preços filtrando por tipologia, preço máx/mín, área mín, andar. Use pra 'opções até X', 'studios', '2 quartos entre X e Y', 'unidades acima do 15º andar'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        empreendimento_nome: { type: "string" },
+        tipologia: { type: "string", description: "Rótulo da tipologia (ex: 'Studio', '1Q', '2Q', 'Loja'). Opcional." },
+        preco_min: { type: "number" },
+        preco_max: { type: "number" },
+        area_min: { type: "number", description: "Área privativa mínima em m²." },
+        andar_min: { type: "number" },
+        andar_max: { type: "number" },
+        apenas_disponiveis: { type: "boolean", description: "Default true. Passe false pra incluir vendidas/reservadas." },
+        is_comercial: { type: "boolean", description: "true = só lojas; false = só residencial; omite = ambos." },
+      },
+      required: ["empreendimento_nome"],
+    },
+  },
+  {
+    name: "listar_tipologias",
+    description:
+      "Resume as tipologias do empreendimento com preço-a-partir, contagem de disponíveis e faixa de área. Use pra 'o que tem pra vender?' em alto nível.",
+    input_schema: {
+      type: "object",
+      properties: {
+        empreendimento_nome: { type: "string" },
+      },
+      required: ["empreendimento_nome"],
+    },
+  },
+  {
+    name: "resumo_tabela_precos",
+    description:
+      "Visão geral da tabela de preços cadastrada: total de unidades, quantas disponíveis (residenciais vs lojas), faixa de preço, entrega prevista e disclaimers oficiais (ex: correção INCC).",
+    input_schema: {
+      type: "object",
+      properties: {
+        empreendimento_nome: { type: "string" },
+      },
+      required: ["empreendimento_nome"],
     },
   },
   {
@@ -377,6 +444,51 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<st
         send_failed: "falha ao enviar pelo WhatsApp",
       };
       return `Não rolou: ${reasonMsg[r.reason] ?? r.reason}${r.message ? ` (${r.message})` : ""}.`;
+    }
+    if (name === "consultar_unidade") {
+      const nome = String(input.empreendimento_nome ?? "");
+      const numero = String(input.numero ?? "").trim();
+      if (!nome || !numero) return "Erro: empreendimento_nome e numero são obrigatórios.";
+      const emp = await resolveEmpreendimentoByName(nome);
+      if (!emp) return `Não achei empreendimento com nome "${nome}".`;
+      const r = await consultarUnidade({ empreendimento_id: emp.id, numero });
+      return capToolResult(JSON.stringify(r));
+    }
+    if (name === "filtrar_unidades") {
+      const nome = String(input.empreendimento_nome ?? "");
+      if (!nome) return "Erro: empreendimento_nome é obrigatório.";
+      const emp = await resolveEmpreendimentoByName(nome);
+      if (!emp) return `Não achei empreendimento com nome "${nome}".`;
+      const r = await filtrarUnidades({
+        empreendimento_id: emp.id,
+        tipologia: typeof input.tipologia === "string" ? input.tipologia : null,
+        preco_min: typeof input.preco_min === "number" ? input.preco_min : null,
+        preco_max: typeof input.preco_max === "number" ? input.preco_max : null,
+        area_min: typeof input.area_min === "number" ? input.area_min : null,
+        andar_min: typeof input.andar_min === "number" ? input.andar_min : null,
+        andar_max: typeof input.andar_max === "number" ? input.andar_max : null,
+        apenas_disponiveis:
+          typeof input.apenas_disponiveis === "boolean" ? input.apenas_disponiveis : true,
+        is_comercial: typeof input.is_comercial === "boolean" ? input.is_comercial : null,
+        limit: 20,
+      });
+      return capToolResult(JSON.stringify(r));
+    }
+    if (name === "listar_tipologias") {
+      const nome = String(input.empreendimento_nome ?? "");
+      if (!nome) return "Erro: empreendimento_nome é obrigatório.";
+      const emp = await resolveEmpreendimentoByName(nome);
+      if (!emp) return `Não achei empreendimento com nome "${nome}".`;
+      const r = await listarTipologias({ empreendimento_id: emp.id });
+      return capToolResult(JSON.stringify(r));
+    }
+    if (name === "resumo_tabela_precos") {
+      const nome = String(input.empreendimento_nome ?? "");
+      if (!nome) return "Erro: empreendimento_nome é obrigatório.";
+      const emp = await resolveEmpreendimentoByName(nome);
+      if (!emp) return `Não achei empreendimento com nome "${nome}".`;
+      const r = await resumoTabelaPrecos({ empreendimento_id: emp.id });
+      return capToolResult(JSON.stringify(r));
     }
     return `Tool desconhecida: ${name}`;
   } catch (e) {

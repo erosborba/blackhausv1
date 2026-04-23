@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Empreendimento, Midia, Tipologia } from "@/lib/empreendimentos-shared";
+import { TabelaPrecosSection } from "./tabela-precos-section";
 
 /**
  * Detail/edit de um empreendimento existente.
@@ -532,6 +533,9 @@ export function DetailClient({ initial }: { initial: Empreendimento }) {
           </div>
         </div>
       </section>
+
+      {/* Tabela de preços */}
+      <TabelaPrecosSection empreendimentoId={emp.id} />
 
       {/* Materiais */}
       <section style={card}>
