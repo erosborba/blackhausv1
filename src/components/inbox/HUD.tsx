@@ -30,6 +30,7 @@ export const HUD = forwardRef<HUDHandle, Props>(function HUD(
   ref,
 ) {
   const [actions, setActions] = useState<SuggestedAction[]>([]);
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -42,6 +43,7 @@ export const HUD = forwardRef<HUDHandle, Props>(function HUD(
       if (!json.ok) throw new Error(json.error ?? "ai_failed");
       const list: SuggestedAction[] = json.data ?? [];
       setActions(list);
+      setSelectedIdx(0);
       return list;
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Falhou");
@@ -56,6 +58,7 @@ export const HUD = forwardRef<HUDHandle, Props>(function HUD(
   // Reset ao trocar lead
   useEffect(() => {
     setActions([]);
+    setSelectedIdx(0);
     setErr(null);
   }, [leadId]);
 
@@ -79,39 +82,93 @@ export const HUD = forwardRef<HUDHandle, Props>(function HUD(
       }
 
       if (actions.length === 0) return;
+
+      // Setas ↑/↓ navegam entre sugestões — funcionam mesmo com foco no
+      // textarea, mas só com Alt segurado pra não interferir no cursor.
+      if (
+        (e.key === "ArrowDown" || e.key === "ArrowUp") &&
+        actions.length > 1 &&
+        (!isEditing || e.altKey)
+      ) {
+        e.preventDefault();
+        setSelectedIdx((cur) => {
+          const max = Math.min(actions.length, 3) - 1;
+          if (e.key === "ArrowDown") return cur >= max ? 0 : cur + 1;
+          return cur <= 0 ? max : cur - 1;
+        });
+        return;
+      }
+
       if (isEditing) return;
 
       if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
-        const first = actions[0]!;
+        const picked = actions[selectedIdx] ?? actions[0]!;
         if (e.shiftKey) {
-          onSendAction(first);
+          onSendAction(picked);
         } else {
-          onPickAction(first);
+          onPickAction(picked);
         }
+      }
+
+      if (e.key === "Escape" && actions.length > 0) {
+        e.preventDefault();
+        setActions([]);
+        setErr(null);
       }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [actions, onPickAction, onSendAction, suggest]);
+  }, [actions, selectedIdx, onPickAction, onSendAction, suggest]);
+
+  // Sem sugestões, sem loading e sem erro — o card não aparece.
+  // Invocação fica no ícone ✨ do Composer.
+  if (actions.length === 0 && !loading && !err) return null;
 
   return (
-    <div className="hud">
-      <div className="hud-head">
-        <span className="title">Próxima ação sugerida</span>
+    <div className="hud task-card">
+      <div className="task-card-head">
+        <span className="task-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          Task
+        </span>
+        <span className="task-title">
+          {actions.length > 0 && actions[selectedIdx]
+            ? actions[selectedIdx].label
+            : actions[0]?.label ?? "Próxima ação"}
+        </span>
         {actions.length > 0 ? (
-          <Chip tone="warm" dot className="hud-cta">
+          <Chip tone="cool" dot className="hud-cta">
             {actions.length} opções
           </Chip>
         ) : null}
+        {actions.length > 0 ? (
+          <button
+            type="button"
+            className="btn sm ghost hud-cta"
+            onClick={suggest}
+            disabled={loading}
+            title="Regenera sugestões (⌘⇧E)"
+          >
+            {loading ? "Pensando…" : "Regenerar"}
+          </button>
+        ) : null}
         <button
           type="button"
-          className="btn sm ghost hud-cta"
-          onClick={suggest}
-          disabled={loading}
-          title="Regenera sugestões (⌘⇧E)"
+          className="task-close"
+          onClick={() => {
+            setActions([]);
+            setErr(null);
+          }}
+          title="Fechar sugestões (Esc)"
+          aria-label="Fechar sugestões"
         >
-          {loading ? "Pensando…" : actions.length ? "Regenerar" : "Sugerir com IA"}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
         </button>
       </div>
 
@@ -122,8 +179,9 @@ export const HUD = forwardRef<HUDHandle, Props>(function HUD(
               <button
                 key={i}
                 type="button"
-                className={`hud-action${i === 0 ? " primary" : ""}`}
+                className={`hud-action${i === selectedIdx ? " primary" : ""}`}
                 onClick={(e) => {
+                  setSelectedIdx(i);
                   if (e.shiftKey) {
                     onSendAction(a);
                   } else {
@@ -134,21 +192,8 @@ export const HUD = forwardRef<HUDHandle, Props>(function HUD(
               >
                 <span className="idx">{i + 1}</span>
                 <div className="lbl">
-                  {i === 0 ? <strong>{a.label}</strong> : a.label}
-                  <span
-                    style={{
-                      display: "block",
-                      fontSize: 11,
-                      opacity: 0.75,
-                      marginTop: 2,
-                      fontWeight: 400,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {a.body}
-                  </span>
+                  {i === selectedIdx ? <strong>{a.label}</strong> : a.label}
+                  <span className="hud-action-body">{a.body}</span>
                 </div>
                 <span className="kbd">{KBD_MAP[i] ?? `${i + 1}`}</span>
               </button>
@@ -163,20 +208,16 @@ export const HUD = forwardRef<HUDHandle, Props>(function HUD(
               marginTop: 2,
             }}
           >
-            ↵ edita · ⇧↵ envia direto · ⌘⇧E regenera
+⌥↑↓ navega · ↵ edita · ⇧↵ envia direto · ⌘⇧E regenera · esc fecha
           </div>
         </>
-      ) : (
+      ) : loading ? (
+        <div className="hud-empty">A Bia está pensando…</div>
+      ) : err ? (
         <div className="hud-empty">
-          {err ? (
-            <span className="hud-error">{err}</span>
-          ) : (
-            <>
-              Clique em <strong>Sugerir com IA</strong> pra ver 3 drafts prontos.
-            </>
-          )}
+          <span className="hud-error">{err}</span>
         </div>
-      )}
+      ) : null}
     </div>
   );
 });

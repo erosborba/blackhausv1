@@ -47,10 +47,14 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   const [err, setErr] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
+  // Auto-resize textarea (respeita min-height do CSS quando vazio)
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
+    if (!text) {
+      el.style.height = "";
+      return;
+    }
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [text]);
@@ -138,7 +142,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
         <textarea
           ref={textareaRef}
           className="composer-input"
-          placeholder="Escreva sua mensagem…  (⌘↵ envia, ↵ no HUD usa ação #1)"
+          placeholder="Digite sua mensagem…"
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -149,45 +153,65 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
           disabled={sending}
         />
         <div className="composer-toolbar">
-          {/* Sugerir com IA — funcional */}
+          {/* Mídia — foto do empreendimento (em breve) */}
           <button
             type="button"
-            className="btn sm ghost"
+            className="composer-icon-btn"
+            title="Enviar foto do empreendimento (em breve)"
+            disabled
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+          </button>
+
+          {/* Anexo — PDF / brochura (em breve) */}
+          <button
+            type="button"
+            className="composer-icon-btn"
+            title="Anexar arquivo (em breve)"
+            disabled
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+          </button>
+
+          {/* Sugerir com IA — funcional (ícone apenas) */}
+          <button
+            type="button"
+            className="composer-icon-btn"
             title="Pede pra Bia sugerir uma resposta"
             onClick={handleSuggest}
             disabled={suggesting || sending}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" />
-            </svg>
-            {suggesting ? "Pensando…" : "Sugerir"}
+            {suggesting ? (
+              <svg className="composer-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 2a10 10 0 1 0 10 10" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3L4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
           </button>
 
           <span style={{ flex: 1 }} />
 
           {/* Toggle Devolver para IA — funcional */}
           <label
-            className="toggle-inline"
+            className={`composer-toggle${returnToIa ? " is-on" : ""}`}
             title="Ao enviar, devolve a conversa pra IA continuar"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 11,
-              fontFamily: "var(--font-mono)",
-              color: returnToIa ? "var(--blue)" : "var(--ink-4)",
-              cursor: "pointer",
-              letterSpacing: "0.03em",
-              userSelect: "none",
-            }}
           >
             <input
               type="checkbox"
               checked={returnToIa}
               onChange={onToggleReturnToIa}
-              style={{ accentColor: "var(--blue)", cursor: "pointer" }}
             />
-            Devolver para IA
+            Devolver IA
           </label>
 
           {/* Erro */}
@@ -197,24 +221,24 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             </span>
           ) : null}
 
-          {/* Enviar */}
+          {/* Enviar — botão circular verde-limão */}
           <button
             type="button"
-            className="btn blue sm"
+            className="composer-send"
             onClick={send}
             disabled={sending || !text.trim()}
+            title="Enviar mensagem (⌘↵)"
           >
-            {sending ? "Enviando…" : "Enviar"}
-            <span
-              className="kbd"
-              style={{
-                background: "rgba(255,255,255,0.15)",
-                borderColor: "rgba(255,255,255,0.2)",
-                color: "#fff",
-              }}
-            >
-              ⌘↵
-            </span>
+            {sending ? (
+              <svg className="composer-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 2a10 10 0 1 0 10 10" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 2L11 13" />
+                <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
+            )}
           </button>
         </div>
       </div>

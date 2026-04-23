@@ -54,6 +54,9 @@ export function PriorityRail({ initial }: { initial: InboxItem[] }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [worklistOpen, setWorklistOpen] = useState(true);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
 
   // Guard contra race: só aceita resposta se é a última query disparada.
   const reqIdRef = useRef(0);
@@ -116,12 +119,39 @@ export function PriorityRail({ initial }: { initial: InboxItem[] }) {
   const { action, ia, waiting } = groupItems(items);
   const totalActive = items.length;
 
+  // Fecha o dropdown ao clicar fora
+  useEffect(() => {
+    if (!filterOpen) return;
+    function onDown(e: MouseEvent) {
+      if (!filterMenuRef.current?.contains(e.target as Node)) setFilterOpen(false);
+    }
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [filterOpen]);
+
+  const FILTER_LABELS: Record<Filter, string> = {
+    all: "Tudo",
+    handoff: "Handoff",
+    qualified: "Qualificados",
+    new: "Novos",
+  };
+
+  // KPIs derivados dos items
+  const todayStr = new Date().toDateString();
+  const newToday = items.filter(
+    (it) => it.last_message_at && new Date(it.last_message_at).toDateString() === todayStr,
+  ).length;
+  const updatesCount = action.length;
+  const assignedToMe = items.filter((it) => it.human_takeover).length;
+
   return (
-    <div className="pane">
-      {/* Cabeçalho pane */}
-      <div className="pane-head">
-        <h3>Conversas</h3>
-        <span className="count">{totalActive} ativas</span>
+    <div className="pane pane-dark">
+      {/* KPIs grid */}
+      <div className="kpi-grid">
+        <KpiCard label="Worklist" value={totalActive} tone="accent" />
+        <KpiCard label="New leads" value={newToday} tone="hot" />
+        <KpiCard label="Updates" value={updatesCount} tone="cool" />
+        <KpiCard label="Assigned" value={assignedToMe} tone="muted" />
       </div>
 
       {/* Busca */}
@@ -133,74 +163,110 @@ export function PriorityRail({ initial }: { initial: InboxItem[] }) {
         />
       </div>
 
-      {/* Filtros */}
-      <div className="conv-filters">
-        <FilterBtn label="Tudo" on={filter === "all"} onClick={() => setFilter("all")} />
-        <FilterBtn label="Handoff" on={filter === "handoff"} onClick={() => setFilter("handoff")} />
-        <FilterBtn label="Qualific." on={filter === "qualified"} onClick={() => setFilter("qualified")} />
-        <FilterBtn label="Novos" on={filter === "new"} onClick={() => setFilter("new")} />
+      {/* Worklist header com filtro dropdown */}
+      <div className="worklist-head">
+        <button
+          type="button"
+          className="worklist-toggle"
+          onClick={() => setWorklistOpen((v) => !v)}
+        >
+          <span className="worklist-check">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <path d="M5 12l5 5L20 7" />
+            </svg>
+          </span>
+          <span className="worklist-title">Worklist</span>
+          {filter !== "all" ? (
+            <span className="worklist-filter-chip">{FILTER_LABELS[filter]}</span>
+          ) : null}
+          <svg
+            className={`worklist-chevron${worklistOpen ? " open" : ""}`}
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        <div className="filter-dropdown" ref={filterMenuRef}>
+          <button
+            type="button"
+            className="filter-trigger"
+            onClick={() => setFilterOpen((v) => !v)}
+            title="Filtrar lista"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+          </button>
+          {filterOpen ? (
+            <div className="filter-menu" role="listbox">
+              {(Object.keys(FILTER_LABELS) as Filter[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`filter-menu-item${filter === f ? " is-active" : ""}`}
+                  onClick={() => {
+                    setFilter(f);
+                    setFilterOpen(false);
+                  }}
+                >
+                  {FILTER_LABELS[f]}
+                  {filter === f ? <span>✓</span> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      {/* Lista com seções */}
-      <div className="conv-list">
-        {loading && items.length === 0 ? (
-          <EmptyState variant="loading" title="Carregando…" />
-        ) : items.length === 0 ? (
-          <EmptyState title={q ? `Nada para "${q}"` : "Sem conversas"} />
-        ) : (
-          <>
-            {action.length > 0 ? (
-              <>
-                <div className="list-section-head">
-                  <span>Precisam de ação · {action.length}</span>
-                  <span className="dot hot" />
-                </div>
-                {action.map((it) => (
-                  <ConvListItem key={it.id} item={it} active={it.id === activeId} />
-                ))}
-              </>
-            ) : null}
-
-            {ia.length > 0 ? (
-              <>
-                <div className="list-section-head" style={{ marginTop: action.length > 0 ? 10 : 0 }}>
-                  IA atendendo · {ia.length}
-                </div>
-                {ia.map((it) => (
-                  <ConvListItem key={it.id} item={it} active={it.id === activeId} />
-                ))}
-              </>
-            ) : null}
-
-            {waiting.length > 0 ? (
-              <>
-                <div className="list-section-head" style={{ marginTop: ia.length > 0 ? 10 : 0 }}>
-                  Aguardando cliente · {waiting.length}
-                </div>
-                {waiting.map((it) => (
-                  <ConvListItem key={it.id} item={it} active={it.id === activeId} />
-                ))}
-              </>
-            ) : null}
-          </>
-        )}
-      </div>
+      {/* Lista (oculta quando worklist collapsed) */}
+      {worklistOpen ? (
+        <div className="conv-list">
+          {loading && items.length === 0 ? (
+            <EmptyState variant="loading" title="Carregando…" />
+          ) : items.length === 0 ? (
+            <EmptyState title={q ? `Nada para "${q}"` : "Sem conversas"} />
+          ) : (
+            <>
+              {action.map((it) => (
+                <ConvListItem key={it.id} item={it} active={it.id === activeId} />
+              ))}
+              {ia.map((it) => (
+                <ConvListItem key={it.id} item={it} active={it.id === activeId} />
+              ))}
+              {waiting.map((it) => (
+                <ConvListItem key={it.id} item={it} active={it.id === activeId} />
+              ))}
+            </>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function FilterBtn({
+function KpiCard({
   label,
-  on,
-  onClick,
+  value,
+  tone,
 }: {
   label: string;
-  on: boolean;
-  onClick: () => void;
+  value: number;
+  tone: "accent" | "hot" | "cool" | "muted";
 }) {
   return (
-    <button type="button" className={`conv-filter${on ? " is-active" : ""}`} onClick={onClick}>
-      {label}
-    </button>
+    <div className={`kpi-card tone-${tone}`}>
+      <span className="kpi-label">
+        <span className="kpi-dot" />
+        {label}
+      </span>
+      <span className="kpi-value">{value}</span>
+    </div>
   );
 }

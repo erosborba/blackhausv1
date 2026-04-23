@@ -154,6 +154,63 @@ export function ContextRail({
       </div>
 
       <div className="ctx">
+        {/* ─── Deal card (unificado: empreendimento + qualificação + ações) ─── */}
+        <section className="deal-card">
+          <div className="deal-head">
+            <span className="deal-tag">Interessado em</span>
+            <svg className="deal-link" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+            </svg>
+          </div>
+          <h3 className="deal-title">
+            {topEmpreendimento?.nome ?? "Empreendimento não identificado"}
+          </h3>
+          {priceRange ? (
+            <div className="deal-price-row">
+              <span className="deal-price-label">Orçamento</span>
+              <span className="deal-price-value">{priceRange}</span>
+            </div>
+          ) : null}
+          <div className="deal-actions">
+            <button
+              type="button"
+              className="deal-btn deal-btn-primary"
+              onClick={() => handlePickStage("recommend")}
+              disabled={stageBusy}
+              title="Mover para Recomendação"
+            >
+              <span className="deal-btn-check">✓</span>
+              Recomendar
+            </button>
+            <button
+              type="button"
+              className="deal-btn"
+              onClick={() => handlePickStage("handoff")}
+              disabled={stageBusy}
+              title="Entregar para corretor"
+            >
+              → Handoff
+            </button>
+          </div>
+          {/* Checklist de qualificação */}
+          {(interests.length > 0 || objections.length > 0) ? (
+            <ul className="deal-checklist">
+              {interests.slice(0, 3).map((tag, i) => (
+                <li key={`int-${i}`} className="deal-check ok">
+                  <span className="deal-check-mark">✓</span>
+                  {tag}
+                </li>
+              ))}
+              {objections.map((obj, i) => (
+                <li key={`obj-${i}`} className={`deal-check ${obj.status === "open" ? "warn" : "muted"}`}>
+                  <span className="deal-check-mark">{obj.status === "open" ? "!" : "✓"}</span>
+                  {obj.label}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+
         {/* ─── Radar ─── */}
         <section>
           <h4>Radar</h4>

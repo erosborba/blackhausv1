@@ -105,7 +105,7 @@
 }
 
 .m-tab.is-active {
-  color: var(--accent, #6aa6ff);
+  color: var(--accent, #d4f542);
 }
 
 .m-tab.is-active::before {
@@ -115,7 +115,7 @@
   left: 30%;
   right: 30%;
   height: 2px;
-  background: var(--accent, #6aa6ff);
+  background: var(--accent, #d4f542);
   border-radius: 0 0 2px 2px;
 }
 
@@ -262,7 +262,7 @@
   transition: border-color 120ms;
 }
 .m-action:active {
-  border-color: var(--accent, #6aa6ff);
+  border-color: var(--accent, #d4f542);
 }
 
 .m-action-top {
@@ -332,16 +332,17 @@
 .m-inbox-item {
   display: flex;
   gap: 12px;
-  padding: 12px 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--glass-bg-hi, var(--surface-2));
+  border: 1px solid var(--glass-border, var(--hairline));
+  border-radius: 18px;
   text-decoration: none;
   color: inherit;
   align-items: flex-start;
+  box-shadow: var(--sh-card);
 }
 .m-inbox-item:active {
-  border-color: var(--accent, #6aa6ff);
+  border-color: var(--accent, #d4f542);
 }
 .m-inbox-avatar {
   width: 40px;
@@ -429,7 +430,7 @@
 .m-day-btn.is-active {
   color: var(--ink);
   background: var(--surface-3);
-  border-color: var(--accent, #6aa6ff);
+  border-color: var(--accent, #d4f542);
 }
 
 .m-agenda-section + .m-agenda-section {
