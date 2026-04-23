@@ -3,7 +3,7 @@ import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages
 import type { BaseMessage } from "@langchain/core/messages";
 import { chatModel } from "@/lib/anthropic";
 import { ROUTER_SYSTEM, SYSTEM_SDR, recommendSystem } from "./prompts";
-import { searchByQualification, searchSemantic } from "./retrieval";
+import { norm, searchByQualification, searchSemantic } from "./retrieval";
 import type {
   SDRStateType,
   Intent,
@@ -362,6 +362,18 @@ export async function retrieveNode(state: SDRStateType) {
       confidence = "weak";
     } else {
       confidence = r.topScore >= ragThreshold ? "strong" : "weak";
+    }
+    // Name-anchor boost: se o lead nomeia explicitamente um empreendimento
+    // do resultado, eleva pra strong. Inventário com nomes parecidos ("AYA
+    // Carlos de Carvalho" vs "Aya Residences Amintas") dilui topScore — a
+    // presença do nome no texto é sinal mais forte que cosine similarity.
+    if (confidence === "weak" && sources.length > 0) {
+      const userNorm = norm(userText);
+      const named = sources.some((s) => {
+        const nameNorm = norm(s.nome);
+        return nameNorm.length > 3 && userNorm.includes(nameNorm);
+      });
+      if (named) confidence = "strong";
     }
   } else if (state.intent === "qualificar" || state.intent === "agendar" || state.intent === "saudacao") {
     const r = await searchByQualification(state.qualification, 5);

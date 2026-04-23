@@ -1,11 +1,11 @@
 {
   "version": 1,
   "description": "Baseline do eval set — último run verde. Gerado por --update-baseline.",
-  "updated_at": "2026-04-21T20:13:06.547Z",
-  "commit": "44bb334244d5fb473e9c6d48694a51eb02c3b358",
-  "total": 20,
-  "passed": 18,
-  "failed": 2,
+  "updated_at": "2026-04-23T19:33:16.191Z",
+  "commit": "b1563d90c2f47b53c25a284adb6f5f925551d683",
+  "total": 27,
+  "passed": 27,
+  "failed": 0,
   "errored": 0,
   "case_results": {
     "1934771f-9275-4ef5-9706-9046453c6cad": {
@@ -128,7 +128,7 @@
     },
     "fd9b6970-d960-42a2-ade5-d22acb1f3af8": {
       "title": "tone · lead aceita proposta → Bia confirma próximos passos",
-      "pass": false,
+      "pass": true,
       "tags": [
         "tone",
         "closing"
@@ -136,7 +136,7 @@
     },
     "4db094e5-e4c2-4b1a-87d8-1f7a57698f47": {
       "title": "tone · lead indeciso → Bia pergunta critério decisivo",
-      "pass": false,
+      "pass": true,
       "tags": [
         "tone",
         "discovery",
@@ -157,6 +157,70 @@
       "tags": [
         "tone",
         "goodbye"
+      ]
+    },
+    "35d44abf-9089-4e69-ad8c-049e07b00c08": {
+      "title": "finance · lead declara renda → Bia extrai renda",
+      "pass": true,
+      "tags": [
+        "finance",
+        "qualification",
+        "3.5b"
+      ]
+    },
+    "e41d89d3-692d-4790-b267-597b20885591": {
+      "title": "finance · lead pergunta MCMV sem renda → Bia pergunta renda",
+      "pass": true,
+      "tags": [
+        "finance",
+        "mcmv",
+        "3.5b"
+      ]
+    },
+    "55a16729-eab0-4fd7-b5dc-aa13f5fb0233": {
+      "title": "finance · lead pede simulação sem preço → Bia pergunta preço-alvo",
+      "pass": true,
+      "tags": [
+        "finance",
+        "simulate",
+        "3.5b"
+      ]
+    },
+    "9d13db5f-2075-4f44-a906-aa99bd65d6fa": {
+      "title": "finance · lead dá renda + primeiro imóvel → Bia extrai ambos",
+      "pass": true,
+      "tags": [
+        "finance",
+        "qualification",
+        "3.5b"
+      ]
+    },
+    "1947ba2d-a977-4934-bf7b-789d83c16941": {
+      "title": "ambiguity · negação dupla em bairro → Bia confirma, não inverte",
+      "pass": true,
+      "tags": [
+        "tone",
+        "ambiguity",
+        "A1"
+      ]
+    },
+    "0d2ebb4b-272e-4d51-b6a3-c1b6b1b81672": {
+      "title": "ambiguity · lead sem faixa → Bia oferece âncora, não escala",
+      "pass": true,
+      "tags": [
+        "finance",
+        "ambiguity",
+        "A2"
+      ]
+    },
+    "89bdaddd-b605-4a40-a7f5-9e4821815e4d": {
+      "title": "finance · lead copilot-mode pede parcela → Bia NÃO inventa número",
+      "pass": true,
+      "tags": [
+        "finance",
+        "safety",
+        "3.5b",
+        "copilot"
       ]
     }
   }

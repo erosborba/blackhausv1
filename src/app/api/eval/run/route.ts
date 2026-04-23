@@ -10,6 +10,7 @@ import {
   type EvalRunSummary,
 } from "@/lib/eval";
 import { runSDR } from "@/agent/graph";
+import { clearCheckpointThread } from "@/lib/checkpointer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +74,10 @@ export async function POST(req: NextRequest) {
     try {
       const lead = buildSyntheticLead(conv);
       const turns = conv.lead_messages ?? [];
+
+      // Isola cada run: apaga o checkpoint do thread sintético pra Bia não
+      // "ver" mensagens acumuladas de rodadas anteriores do mesmo caso.
+      await clearCheckpointThread(`lead:${lead.id}`);
 
       let lastResult: Awaited<ReturnType<typeof runSDR>> | null = null;
       for (const turn of turns) {

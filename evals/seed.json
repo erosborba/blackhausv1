@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Seed eval set — Track 1 · Slice 1.2 + Track 3 · Slice 3.5b. 25 casos cobrindo 5 pilares: handoff decision (5), qualification extraction (5), grounding/RAG (5), tone/closing (5), finance/copilot safety (5). Veja docs/VANGUARD_SLICES.md#1.2 e #3.5b.",
+  "description": "Seed eval set — Track 1 · Slice 1.2 + Track 3 · Slice 3.5b + debt-slice A1/A2. 27 casos cobrindo 5 pilares: handoff decision (5), qualification extraction (5), grounding/RAG (5), tone/closing (5), finance/copilot safety (5) + ambiguity (2). Veja docs/VANGUARD_SLICES.md#1.2, #3.5b e docs/TECH_DEBT.md (A1/A2).",
   "notes": [
     "Casos de grounding (tag 'grounding') dependem de `mustMentionEmpreendimentoId` — substitua os placeholders `REPLACE_WITH_REAL_EMP_ID` por UUIDs reais do seu banco antes de rodar, ou rode com --tag=!grounding.",
     "Casos foram escritos pra baseline atual. Se o DoD de 16/20 não bater na primeira execução, documente quais 4 falham em VANGUARD.md > Lições > Track 1."
@@ -359,6 +359,41 @@
         "qualificationKeys": ["renda", "primeiro_imovel"]
       },
       "notes": "Track 3 · 3.5b — extração dupla num turno só. Renda=5000, primeiro_imovel=true."
+    },
+    {
+      "title": "ambiguity · negação dupla em bairro → Bia confirma, não inverte",
+      "tags": ["tone", "ambiguity", "A1"],
+      "initial_lead": {
+        "push_name": "Rogério",
+        "stage": "qualify",
+        "qualification": { "bairros": ["Lindóia"] }
+      },
+      "lead_messages": [
+        { "content": "não pode ser em qualquer outro lugar" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "replyMustNotMatch": "somente no Lindóia|só no Lindóia|apenas no Lindóia|fechou.*Lindóia|anotei.*Lindóia"
+      },
+      "notes": "A1 · P-5 — resposta ambígua (negação dupla) pode querer dizer 'tanto faz' ou 'só no Lindóia'. Bia deve CONFIRMAR, não inferir. Regra 'Regras de interpretação' em SYSTEM_SDR bloqueia o comportamento errado."
+    },
+    {
+      "title": "ambiguity · lead sem faixa → Bia oferece âncora, não escala",
+      "tags": ["finance", "ambiguity", "A2"],
+      "initial_lead": {
+        "push_name": "Larissa",
+        "stage": "qualify",
+        "qualification": { "quartos": 2, "bairros": ["Centro"] }
+      },
+      "lead_messages": [
+        { "content": "ainda não decidi valores, não sei quanto quero investir" }
+      ],
+      "expected": {
+        "needsHandoff": false,
+        "replyMustNotContain": "confirmar com o consultor",
+        "replyMustNotMatch": "vou (?:puxar|confirmar|verificar|conferir)\\s+com"
+      },
+      "notes": "A2 · P-6 — lead sem faixa é oportunidade de qualificação, não escala. Bia deve ancorar via portfólio (mostrar 2-3 opções pra calibrar) OU pedir 1 sinal de filtro (tipo/bairro/finalidade). EXCEÇÃO financeira em SYSTEM_SDR."
     },
     {
       "title": "finance · lead copilot-mode pede parcela → Bia NÃO inventa número",

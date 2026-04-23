@@ -57,7 +57,7 @@ function renderEmpreendimento(e: Empreendimento): string {
 }
 
 /** Remove acentos e normaliza pra comparação case-insensitive. */
-function norm(s: string): string {
+export function norm(s: string): string {
   return s
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")

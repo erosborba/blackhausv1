@@ -1,7 +1,18 @@
 name: eval
 
-# Guard-rail G-1 (VANGUARD.md): roda o eval set em qualquer PR que toque
-# comportamento da Bia. Falha se pass rate cair > 10% vs evals/baseline.json.
+# Guard-rail G-1 (VANGUARD.md): roda o eval set contra o baseline pra detectar
+# drift no comportamento da Bia. Falha se pass rate cair > 10% vs
+# evals/baseline.json.
+#
+# MODO ATUAL: manual-only. Rodar via Actions → eval → "Run workflow" antes de
+# mergear PR que toca src/agent/** ou src/lib/lead-memory.ts / copilot.ts /
+# brief.ts. Decisão em 2026-04-23: não disparar em todo PR porque (a) outras
+# áreas estão em alto volume de merges e eval queima ~$0.10 por run,
+# (b) baseline atual é 27/27 e regressão é fácil de pegar rodando `npm run
+# eval` local antes do push.
+#
+# Pra voltar a disparar automaticamente em PR que mexe no agente, adicionar
+# de volta o bloco `pull_request:` com os paths relevantes.
 #
 # Secrets necessários:
 #   SUPABASE_URL
@@ -10,22 +21,8 @@ name: eval
 #   BH_EVAL_TOKEN            (pra autenticar o CLI no /api/eval/run)
 #   ANTHROPIC_API_KEY
 #   OPENAI_API_KEY           (retrieval usa embeddings OpenAI)
-#
-# Se você ainda não tem CI configurado: esse arquivo fica dormente até
-# os secrets serem setados no repo. Pra rodar local: `npm run eval`.
 
 on:
-  pull_request:
-    paths:
-      - "src/agent/**"
-      - "src/lib/lead-memory.ts"
-      - "src/lib/copilot.ts"
-      - "src/lib/brief.ts"
-      - "src/lib/eval.ts"
-      - "src/app/api/eval/**"
-      - "scripts/eval-*.mjs"
-      - "evals/**"
-      - "package.json"
   workflow_dispatch: {}
 
 jobs:

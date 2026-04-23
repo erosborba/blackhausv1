@@ -456,26 +456,32 @@ answer Sonnet). Runs demoram ~140s.
 agente. Baseline atual (18/20) já protege contra regressão >10% — o
 gate do CI funciona. Firmar 20/20 é refinamento, não bloqueador.
 
-### P-2 · Ativar CI gate automático
+### P-2 · Eval gate — manual only por enquanto
 
-**Status**: `.github/workflows/eval.yml` existe mas tá dormente — não
-tem os secrets pra rodar.
+**Status — 2026-04-23**: `.github/workflows/eval.yml` configurado como
+**manual-only** (`on: workflow_dispatch`). Trigger automático em PR foi
+removido enquanto outras áreas estão em alto volume de merges — cada run
+gasta ~$0.10 e não justifica em PR que nem toca agente. Baseline firmado
+em **27/27 (100%)** em 2026-04-23.
 
-**Pra ativar**:
-- GitHub repo → Settings → Secrets and variables → Actions → New secret:
-  - `SUPABASE_URL`
-  - `SUPABASE_SECRET_KEY`
-  - `SUPABASE_PUBLISHABLE_KEY`
-  - `ANTHROPIC_API_KEY`
-  - `OPENAI_API_KEY` (embeddings)
-  - `BH_EVAL_TOKEN` (qualquer string aleatória; só precisa bater com
-    `.env.local`)
-- Depois do primeiro PR que mexer em agente, o workflow dispara sozinho
+**Protocolo atual**:
+1. Antes de mergear PR que toca `src/agent/**`, `src/lib/lead-memory.ts`,
+   `copilot.ts`, `brief.ts` ou prompts: rodar `npm run eval` local (precisa
+   `npm run dev` em outro terminal + `APP_BASE_URL=http://localhost:3000`
+   se `.env.local` aponta pro ngrok).
+2. Se regredir > 10%, não merge até entender (pode ser mudança intencional
+   que exige atualizar baseline com `--update-baseline`).
+3. Se passar, opcionalmente atualizar baseline: `npm run eval -- --update-baseline`.
 
-**Custo**: ~$0.10 por PR relevante. Irrelevante no volume atual.
-
-**Por que não fiz**: depende de você ter acesso às secrets da Vercel/
-Supabase de prod. É 5 minutos de UI, não vale abrir um slice.
+**Pra reativar o trigger em PR** (quando o volume de merges em outras
+áreas desacelerar):
+- Reabrir `.github/workflows/eval.yml`, readicionar o bloco
+  `pull_request:` com paths de agente (ver git blame pra recuperar o
+  bloco original).
+- GitHub repo → Settings → Secrets → Actions → adicionar:
+  - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`
+  - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`
+  - `BH_EVAL_TOKEN` (mesmo valor do `.env.local`)
 
 ### P-3 · Substituir fator câmbio fixo por cotação real
 
@@ -492,7 +498,16 @@ dos 20 casos atuais.
 
 ### P-5 · Bia infere mal quando resposta do lead é ambígua (áudio + negação)
 
-**Status**: observado em produção 2026-04-22. Lead respondeu em áudio
+**Status — 2026-04-23**: versão curta entregue. Bloco "Regras de interpretação"
+adicionado ao `SYSTEM_SDR` em `src/agent/prompts.ts` (confirmar antes de inferir
+em negação dupla/frase curta/áudio). Fixture de regressão no eval:
+`ambiguity · negação dupla em bairro → Bia confirma, não inverte`
+(regex bloqueia "só/somente/apenas no Lindóia"). **Versão média ainda
+pendente**: propagar `via: "audio"` no state pra enriquecer o prompt quando
+turno vier de transcrição. Só vale se o eval mostrar que a regra curta
+sozinha não basta.
+
+**Status original**: observado em produção 2026-04-22. Lead respondeu em áudio
 "não pode ser em qualquer outro lugar" e a Bia interpretou como "só no
 Lindóia" quando o lead quis dizer "tanto faz, pode ser em qualquer
 lugar" (confirmado no turno seguinte: "não, eu disse que pode ser
@@ -524,7 +539,18 @@ financeiro) pra não quebrar casos já cobertos.
 
 ### P-6 · Bia escala resposta trivial quando lead não sabe faixa de preço
 
-**Status**: observado em produção 2026-04-22. Lead respondeu "ainda
+**Status — 2026-04-23**: versão curta entregue. Nova exceção no bloco
+"Regras de cálculos financeiros" do `SYSTEM_SDR` diferencia *valor prometido*
+(proibido) de *oportunidade de qualificação* (permitido). Em "ainda não
+decidi valores", a Bia agora propõe ancoragem via 2-3 empreendimentos do
+portfólio em vez de escalar pro consultor. Fixture de regressão:
+`ambiguity · lead sem faixa → Bia oferece âncora, não escala` (regex bloqueia
+"vou puxar/confirmar/verificar com o consultor"). **Versão média pendente**:
+injetar `MIN/MAX(preco_inicial) GROUP BY cidade, bairro, tipologia` no prompt
+quando router classifica `qualificar` com `missing=faixa_preco`. Só vale se
+o retrieval orgânico se mostrar insuficiente.
+
+**Status original**: observado em produção 2026-04-22. Lead respondeu "ainda
 não decidi valores" quando perguntado sobre orçamento. A Bia
 respondeu "vou confirmar esse dado com o consultor e já te volto" —
 escalação inútil que quebra o flow de qualificação. Lead esperava
