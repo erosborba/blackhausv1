@@ -2,10 +2,20 @@ import { supabaseAdmin } from "@/lib/supabase";
 import {
   consultarUnidade,
   filtrarUnidades,
+  filtrarUnidadesMulti,
   listarTipologias,
   resumoTabelaPrecos,
 } from "./tools";
 import type { RetrievedSource } from "./retrieval";
+import {
+  classifyQueryIntent as _classifyQueryIntent,
+  norm,
+  type QueryIntent,
+} from "./tabela-precos-classifier";
+
+// Re-export pra calls antigos (e pro teste unitário) seguirem importando
+// daqui. A implementação vive em `tabela-precos-classifier.ts` (puro).
+export const classifyQueryIntent = _classifyQueryIntent;
 
 /**
  * Pre-tool-call hook: decide se a mensagem do lead precisa da tabela de
@@ -37,13 +47,31 @@ export async function buildTabelaPrecosBlock(input: {
   const text = input.lastUserText.trim();
   if (!text) return null;
 
-  // 1. Resolve empreendimento
+  // 1. Resolve empreendimento (pode ser null = lead não citou nem temos
+  //    pista forte na memória; aí tentamos modo multi-emp pra filtrar).
   const emp = await pickEmpreendimento(text, input.retrievedSources, input.leadMemory);
-  if (!emp) return null;
 
   // 2. Classifica sub-intent
   const sub = classifyQueryIntent(text);
   if (!sub) return null;
+
+  // 2b. Sem empreendimento alvo: só faz sentido continuar pra "filtrar"
+  //     (tipologia/preço varre os ativos). Outros sub-intents precisam de
+  //     alvo (número, listar, resumo) — sem alvo, devolve null e a Bia
+  //     pergunta qual prédio o lead quer.
+  if (!emp) {
+    if (sub.kind !== "filtrar") return null;
+    const r = await filtrarUnidadesMulti({
+      tipologia: sub.tipologia ?? null,
+      preco_max: sub.preco_max ?? null,
+      preco_min: sub.preco_min ?? null,
+      is_comercial: sub.is_comercial ?? null,
+      apenas_disponiveis: true,
+      limit_per_emp: 3,
+      limit_total: 12,
+    });
+    return renderFiltrarMultiBlock(sub, r);
+  }
 
   // 3. Chama a tool e monta o bloco
   if (sub.kind === "unidade_por_numero") {
@@ -179,136 +207,6 @@ async function listActiveEmps(): Promise<Array<{ id: string; nome: string }>> {
   return (data ?? []) as Array<{ id: string; nome: string }>;
 }
 
-// ─── classificação de intent ─────────────────────────────────────────────────
-
-type QueryIntent =
-  | { kind: "unidade_por_numero"; numero: string }
-  | {
-      kind: "filtrar";
-      tipologia: string | null;
-      preco_min: number | null;
-      preco_max: number | null;
-      is_comercial: boolean | null;
-    }
-  | { kind: "listar_tipologias" }
-  | { kind: "resumo" };
-
-function classifyQueryIntent(text: string): QueryIntent | null {
-  const t = norm(text);
-
-  // (1) Número de unidade: "1811", "unidade 301", "apto 1812", "L01".
-  // Precisamos evitar falsos positivos: "preço 400" → 400 não é unidade.
-  // Heurística: match apenas se o número tem 3-4 dígitos E aparece como
-  // palavra isolada (boundaries), OU prefixado por "unidade"/"apto"/"apt"/"ap"/"L".
-  const numMatch = extractUnidadeNumero(text);
-  if (numMatch) return { kind: "unidade_por_numero", numero: numMatch };
-
-  // (2) Loja
-  const isComercialHint = /\b(loja|lojas|comercial|sala comercial)\b/.test(t);
-
-  // (3) Tipologia
-  const tipologia = extractTipologia(t);
-
-  // (4) Filtros de preço ("até X", "entre X e Y", "no máximo X mil")
-  const preco = extractFaixaPreco(t);
-
-  if (tipologia || preco.min != null || preco.max != null || isComercialHint) {
-    return {
-      kind: "filtrar",
-      tipologia,
-      preco_min: preco.min,
-      preco_max: preco.max,
-      is_comercial: isComercialHint ? true : null,
-    };
-  }
-
-  // (5) Pergunta aberta "quais tipologias / o que tem / opções"
-  if (
-    /\b(tipologias?|o que tem|quais opcoes|quais as opcoes|que opcoes|qual opcao|opcoes disponiveis)\b/.test(t)
-  ) {
-    return { kind: "listar_tipologias" };
-  }
-
-  // (6) Resumo / entrega / datas da obra — pergunta institucional mas
-  //     que é melhor respondida pela tabela estruturada (entrega_prevista)
-  //     do que por RAG vetorial. Usa resumo_tabela_precos pra trazer
-  //     entrega + disclaimers oficiais (INCC, IGPM, etc).
-  if (
-    /\b(entrega|previsao de entrega|previsao|chaves|quando fica pronto|quando entrega|prazo da obra|resumo|visao geral|me conta sobre)\b/.test(
-      t,
-    )
-  ) {
-    return { kind: "resumo" };
-  }
-
-  return null;
-}
-
-function extractUnidadeNumero(raw: string): string | null {
-  // Lojas: L01, L02 (com ou sem espaço)
-  const loja = raw.match(/\b[lL]\s*0?\d{1,3}\b/);
-  if (loja) return loja[0].toUpperCase().replace(/\s+/, "");
-
-  // "unidade/apto/apt/ap <numero>"
-  const prefixed = raw.match(/\b(?:unidade|apto|apt|ap)\.?\s*(\d{3,4})\b/i);
-  if (prefixed) return prefixed[1];
-
-  // Número 3-4 dígitos isolado. Aceita mesmo sem keyword ("e a 1812?",
-  // "1811"). Filtragem é por FORMATO de unidade imobiliária:
-  //   - 3-4 dígitos
-  //   - faixa 101..3099 (andar 1..30, unidade 01..99)
-  //   - não terminado em 00 (filtra "400", "2000" — preços/anos/ticks)
-  //   - não no intervalo de anos prováveis (1900..2100)
-  // É uma heurística; quando falha, a Bia pergunta (comportamento padrão
-  // de "ambiguidade → clarify"). Fase B (tool_use nativo) resolve melhor.
-  const loose = raw.match(/\b(\d{3,4})\b/);
-  if (loose) {
-    const n = Number(loose[1]);
-    const isLikelyYear = n >= 1900 && n <= 2100;
-    const isLikelyUnit =
-      n >= 101 && n <= 3099 && n % 100 !== 0 && !isLikelyYear;
-    if (isLikelyUnit) return loose[1];
-  }
-  return null;
-}
-
-function extractTipologia(normText: string): string | null {
-  if (/\bstudios?\b|\bstd\b/.test(normText)) return "Studio";
-  if (/\b1\s*q(uartos?)?\b|\b1qs?\b|\b1\s*dorm/.test(normText)) return "1Q";
-  if (/\b2\s*q(uartos?)?\b|\b2qs?\b|\b2\s*dorm|dois quartos/.test(normText)) return "2Q";
-  // Tipologias mais específicas ficam pro tool resolver por si só.
-  return null;
-}
-
-function extractFaixaPreco(normText: string): { min: number | null; max: number | null } {
-  // "ate/até 400 mil", "ate R$ 400.000"
-  const ate = normText.match(/\bate\s+(r?\$?\s*)?([\d\.,]+)\s*(mil|milh|m)?\b/);
-  const deAte = normText.match(/\bentre\s+([\d\.,]+)\s*(mil|milh|m)?\s*e\s+([\d\.,]+)\s*(mil|milh|m)?\b/);
-  const menor = normText.match(/\b(menos|abaixo) de\s+([\d\.,]+)\s*(mil|milh|m)?\b/);
-
-  let max: number | null = null;
-  let min: number | null = null;
-  if (deAte) {
-    min = parseMoney(deAte[1], deAte[2]);
-    max = parseMoney(deAte[3], deAte[4]);
-  } else {
-    if (ate) max = parseMoney(ate[2], ate[3]);
-    if (menor) max = parseMoney(menor[2], menor[3]);
-  }
-  return { min, max };
-}
-
-function parseMoney(raw: string, unit: string | undefined): number | null {
-  if (!raw) return null;
-  const n = Number(raw.replace(/\./g, "").replace(",", "."));
-  if (!Number.isFinite(n)) return null;
-  if (unit && /mil/.test(unit)) return n * 1000;
-  if (unit && /milh|^m$/.test(unit)) return n * 1_000_000;
-  // Sem unidade: se for pequeno (tipo "400"), assume "mil". 400 = R$ 400k.
-  if (n < 10000) return n * 1000;
-  return n;
-}
-
 // ─── renderização dos blocos ────────────────────────────────────────────────
 
 const BRL = (n: number | null | undefined) =>
@@ -418,6 +316,66 @@ function renderFiltrarBlock(
     .join("\n");
 }
 
+function renderFiltrarMultiBlock(
+  sub: Extract<QueryIntent, { kind: "filtrar" }>,
+  r: Awaited<ReturnType<typeof filtrarUnidadesMulti>>,
+): string {
+  if (!r.ok) {
+    return `TABELA_PRECOS_MATCH (multi): nenhum empreendimento ativo. Diga ao lead que vai confirmar com o consultor.`;
+  }
+
+  const filtros: string[] = [];
+  if (sub.tipologia) filtros.push(`tipologia=${sub.tipologia}`);
+  if (sub.preco_min != null) filtros.push(`preco_min=${BRL(sub.preco_min)}`);
+  if (sub.preco_max != null) filtros.push(`preco_max=${BRL(sub.preco_max)}`);
+  if (sub.is_comercial === true) filtros.push(`is_comercial=true`);
+
+  const header = [
+    `TABELA_PRECOS_MATCH (escopo: TODOS os empreendimentos ativos)`,
+    `filtros: ${filtros.join(", ") || "—"}`,
+    `count_total=${r.count} · empreendimentos_com_match=${r.empreendimentos_com_match}`,
+  ].join("\n");
+
+  if (r.count === 0) {
+    return [
+      header,
+      `Nenhuma unidade bate com esse filtro em nenhum dos empreendimentos ativos.`,
+      `INSTRUÇÃO: Diga isso de forma transparente — "olhei aqui e não temos opção nessa faixa hoje" — e pergunte se ele topa flexibilizar (faixa, tipologia, bairro). NÃO prometa "vou perguntar pro consultor"; a tabela é a fonte da verdade.`,
+    ].join("\n");
+  }
+
+  // Agrupa por empreendimento pra Bia poder mencionar opções de cada prédio.
+  const porEmp = new Map<string, typeof r.unidades>();
+  for (const u of r.unidades) {
+    const key = u.empreendimento_id;
+    if (!porEmp.has(key)) porEmp.set(key, []);
+    porEmp.get(key)!.push(u);
+  }
+
+  const blocos: string[] = [];
+  for (const [, unidades] of porEmp) {
+    const nome = unidades[0]?.empreendimento_nome ?? "—";
+    blocos.push(`\n${nome}:`);
+    for (const u of unidades.slice(0, 3)) {
+      const pp = u.plano_pagamento;
+      const mensal = pp ? `${BRL(pp.mensais.valor)} × ${pp.mensais.parcelas}` : "—";
+      blocos.push(
+        `  • ${u.numero} · ${u.tipologia ?? "—"} · ${u.area_privativa ?? "?"} m² · ${BRL(u.preco_total)} · sinal ${BRL(pp?.sinal.valor)} · mensal ${mensal}`,
+      );
+    }
+  }
+
+  const faixas = `Faixa global: ${BRL(r.faixas.preco_min)} – ${BRL(r.faixas.preco_max)} · ${r.faixas.area_min ?? "?"}–${r.faixas.area_max ?? "?"} m²`;
+
+  return [
+    header,
+    faixas,
+    `unidades_por_empreendimento:`,
+    ...blocos,
+    `IMPORTANTE: copie valores monetários EXATAMENTE como acima. Mostre no máximo 2 empreendimentos pro lead (escolha os com unidade mais barata) com 1-2 opções de cada. Pergunte qual interessa pra detalhar mais. NÃO diga "vou perguntar pro consultor" — você JÁ tem os dados.`,
+  ].join("\n");
+}
+
 function renderListarTipologiasBlock(
   nome: string,
   r: Awaited<ReturnType<typeof listarTipologias>>,
@@ -442,10 +400,6 @@ function renderListarTipologiasBlock(
     ...linhas,
     `IMPORTANTE: copie valores monetários exatamente como acima.`,
   ].join("\n");
-}
-
-function norm(s: string): string {
-  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 }
 
 function toBRDate(iso: string): string | null {

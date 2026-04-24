@@ -207,5 +207,11 @@ language sql stable as $$
   order by u.is_comercial asc, preco_a_partir asc nulls last;
 $$;
 
--- Realtime pra UI de admin atualizar preview.
-alter publication supabase_realtime add table public.empreendimento_tabelas_precos;
+-- Realtime pra UI de admin atualizar preview. Idempotente: pula se já tá
+-- na publication (pgs nativo não tem IF NOT EXISTS pra publication).
+do $$
+begin
+  alter publication supabase_realtime add table public.empreendimento_tabelas_precos;
+exception when duplicate_object then
+  null;
+end $$;

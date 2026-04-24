@@ -195,6 +195,68 @@ export async function filtrarUnidades(input: FiltrarInput): Promise<UnidadeFiltr
   }));
 }
 
+// ─── READ: filtrar multi-empreendimento ──────────────────────────────────────
+
+export type FiltrarMultiInput = {
+  /** Null = todos os empreendimentos ativos. */
+  empreendimentoIds?: string[] | null;
+  tipologia?: string | null;
+  preco_min?: number | null;
+  preco_max?: number | null;
+  area_min?: number | null;
+  andar_min?: number | null;
+  andar_max?: number | null;
+  apenas_disponiveis?: boolean;
+  is_comercial?: boolean | null;
+  /** Top-N por empreendimento (default 5). */
+  limit_per_emp?: number;
+  /** Cap total agregado (default 30). */
+  limit_total?: number;
+};
+
+export type UnidadeMulti = UnidadeFiltrada & {
+  empreendimento_id: string;
+  empreendimento_nome: string;
+};
+
+export async function filtrarUnidadesMulti(
+  input: FiltrarMultiInput,
+): Promise<UnidadeMulti[]> {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.rpc("unidades_filtrar_multi", {
+    p_empreendimento_ids: input.empreendimentoIds ?? null,
+    p_tipologia: input.tipologia ?? null,
+    p_preco_min: input.preco_min ?? null,
+    p_preco_max: input.preco_max ?? null,
+    p_area_min: input.area_min ?? null,
+    p_andar_min: input.andar_min ?? null,
+    p_andar_max: input.andar_max ?? null,
+    p_apenas_disponiveis: input.apenas_disponiveis ?? true,
+    p_is_comercial: input.is_comercial ?? null,
+    p_limit_per_emp: input.limit_per_emp ?? 5,
+    p_limit_total: input.limit_total ?? 30,
+  });
+  if (error) {
+    console.error("[tabela-precos] filtrar_multi:", error.message);
+    return [];
+  }
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  return rows.map((r) => ({
+    empreendimento_id: String(r.empreendimento_id),
+    empreendimento_nome: String(r.empreendimento_nome),
+    id: String(r.id),
+    numero: String(r.numero),
+    andar: r.andar == null ? null : Number(r.andar),
+    tipologia: (r.tipologia as string | null) ?? null,
+    area_privativa: toNumOrNull(r.area_privativa),
+    area_terraco: toNumOrNull(r.area_terraco),
+    preco_total: toNumOrNull(r.preco_total),
+    plano_pagamento: (r.plano_pagamento as ParsedUnidade["plano_pagamento"] | null) ?? null,
+    status: (r.status as UnidadeFiltrada["status"]) ?? "avail",
+    is_comercial: Boolean(r.is_comercial),
+  }));
+}
+
 // ─── READ: tipologias ────────────────────────────────────────────────────────
 
 export type TipologiaResumo = {

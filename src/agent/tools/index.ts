@@ -76,6 +76,12 @@ export {
 } from "./filtrar-unidades";
 
 export {
+  filtrarUnidadesMulti,
+  type FiltrarUnidadesMultiInput,
+  type FiltrarUnidadesMultiOutput,
+} from "./filtrar-unidades-multi";
+
+export {
   listarTipologias,
   type ListarTipologiasInput,
   type ListarTipologiasOutput,
