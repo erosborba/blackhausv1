@@ -1,5 +1,6 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { createHash } from "node:crypto";
 import {
   SDRState,
   type SDRStateType,
@@ -22,6 +23,22 @@ import { checkpointer } from "@/lib/checkpointer";
 import { recentMessages, type Lead, type Qualification } from "@/lib/leads";
 
 let _compiled: Awaited<ReturnType<typeof build>> | null = null;
+
+/**
+ * Gera ID determinístico pra BaseMessage. Mesma (role, content, timestamp) →
+ * mesmo ID. O `messagesStateReducer` do LangGraph faz dedup por ID; isso
+ * garante que re-hidratações idempotentes não acumulem cópias no checkpoint.
+ *
+ * Trim no timestamp pra minutos (slice(0,16) = "YYYY-MM-DDTHH:MM") porque
+ * inbound vem com created_at no segundo ou ms — qualquer reformatação não
+ * deve invalidar a dedup. 16 chars já é específico o bastante pra não
+ * colidir com mensagens diferentes da mesma sessão.
+ */
+function stableMessageId(role: string, content: string, isoTimestamp: string): string {
+  const minute = isoTimestamp.slice(0, 16);
+  const h = createHash("sha1").update(`${role}|${minute}|${content}`).digest("hex");
+  return `msg-${h.slice(0, 16)}`;
+}
 
 async function build() {
   const saver = await checkpointer();
@@ -74,18 +91,49 @@ export async function runSDR(args: {
 }> {
   const app = await getGraph();
   const threadId = `lead:${args.lead.id}`;
+  const config = { configurable: { thread_id: threadId } };
 
-  // Reidrata as últimas mensagens persistidas como contexto inicial
-  // (o checkpointer manterá o estado entre turnos via thread_id).
-  const history = await recentMessages(args.lead.id, 12);
-  const initialMessages = history.map((m) =>
-    m.role === "user"
-      ? new HumanMessage(m.content)
-      : new HumanMessage({ content: m.content, name: "assistant" }),
+  // Bug histórico (corrigido aqui): a cada turno reidratávamos as últimas 12
+  // mensagens do banco como `HumanMessage(content)` SEM ID estável. O
+  // `messagesStateReducer` do LangGraph anexa por id; sem id, gera um novo
+  // a cada chamada → o checkpoint persistido acumulava 12 cópias adicionais
+  // por turno, inflando o array `state.messages` indefinidamente. Em
+  // conversas longas (60+ msgs) isso fazia o LLM ver a mesma pergunta
+  // duplicada e responder duas vezes — exatamente o sintoma observado em
+  // produção (msg "Essa parcela é durante a obra..." enviada 2x antes de
+  // um handoff no lead da91854c, log de 2026-04-24 01:14).
+  //
+  // Solução: confia no checkpointer (PostgresSaver) pra continuidade
+  // intra-thread. Reidratamos do banco APENAS quando o thread é novo
+  // (cold start, deploy, ou primeira interação) e usamos IDs determinísticos
+  // baseados em hash(role+content+timestamp) pra que re-runs sejam dedup
+  // pelo reducer.
+  const existing = await app.getState(config).catch(() => null);
+  const hasState = Boolean(
+    existing && Array.isArray(existing.values?.messages) && existing.values.messages.length > 0,
   );
-  // O turno atual é a última mensagem do usuário:
+
+  let initialMessages: Array<HumanMessage | AIMessage> = [];
+  if (!hasState) {
+    const history = await recentMessages(args.lead.id, 12);
+    initialMessages = history.map((m) => {
+      const id = stableMessageId(m.role, m.content, m.created_at);
+      return m.role === "user"
+        ? new HumanMessage({ content: m.content, id })
+        : new AIMessage({ content: m.content, id });
+    });
+  }
+
+  // O turno atual é a última mensagem do usuário. ID determinístico também
+  // — protege contra retries do webhook que cheguem com mesma userText em
+  // janela curta (raro, mas barato proteger).
+  const turnUserMessage = new HumanMessage({
+    content: args.userText,
+    id: stableMessageId("user", args.userText, new Date().toISOString().slice(0, 16)),
+  });
+
   const turnInput = {
-    messages: [...initialMessages, new HumanMessage(args.userText)],
+    messages: [...initialMessages, turnUserMessage],
     leadId: args.lead.id,
     phone: args.lead.phone,
     pushName: args.lead.push_name,
@@ -96,9 +144,7 @@ export async function runSDR(args: {
     leadMemory: (args.lead.memory ?? "").trim(),
   } satisfies Partial<SDRStateType>;
 
-  const final = await app.invoke(turnInput, {
-    configurable: { thread_id: threadId },
-  });
+  const final = await app.invoke(turnInput, config);
 
   return {
     reply: final.reply,

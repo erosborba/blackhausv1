@@ -61,10 +61,32 @@ const COMPACT_MODEL = "claude-haiku-4-5";
 /**
  * Devolve os últimos K messages (tail) — o resto foi compactado em
  * `state.compactedHistory`. Usado tanto pelo routerNode quanto pelo answer.
+ *
+ * Dedup defensivo: leads com checkpoint envenenado (bug histórico em
+ * runSDR — ver graph.ts) podem ter cópias adjacentes do mesmo turno. O
+ * dedup remove sequências idênticas (mesmo role + content) antes do
+ * tail, garantindo que o LLM nunca veja a mesma pergunta 2x. Custo é
+ * O(n) e desnecessário quando o checkpoint está limpo, mas a guarda
+ * paga por si só pra leads legados.
  */
 function recentTail(state: SDRStateType, keep = COMPACT_KEEP_TAIL): BaseMessage[] {
-  if (state.messages.length <= keep) return state.messages;
-  return state.messages.slice(-keep);
+  const deduped = dedupAdjacent(state.messages);
+  if (deduped.length <= keep) return deduped;
+  return deduped.slice(-keep);
+}
+
+function dedupAdjacent(msgs: BaseMessage[]): BaseMessage[] {
+  if (msgs.length < 2) return msgs;
+  const out: BaseMessage[] = [msgs[0]];
+  for (let i = 1; i < msgs.length; i++) {
+    const prev = out[out.length - 1];
+    const cur = msgs[i];
+    if (prev.getType() === cur.getType() && String(prev.content) === String(cur.content)) {
+      continue; // duplicata adjacente — descarta
+    }
+    out.push(cur);
+  }
+  return out;
 }
 
 const REQUIRED_FIELDS: (keyof Qualification)[] = [
