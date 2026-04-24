@@ -133,6 +133,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // Preserva `handoff_notified_at` pra analytics históricas. Mantém
   // `assigned_agent_id` pra continuidade — mas `human_takeover=false`
   // desbloqueia o atendimento da Bia.
+  //
+  // Reset `handoff_attempts=0`: contador é por CICLO de handoff, não pela
+  // vida do lead. Resolvido = ciclo encerrado. Sem reset, leads longevos
+  // batem no teto logo no primeiro retry de qualquer handoff futuro e
+  // caem em handoff_stuck (ver lib/handoff.ts:closeBridge mesma lógica).
   try {
     const sb = supabaseAdmin();
     await sb
@@ -140,6 +145,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       .update({
         handoff_resolved_at: new Date().toISOString(),
         human_takeover: false,
+        handoff_attempts: 0,
       })
       .eq("id", leadId);
   } catch (e) {

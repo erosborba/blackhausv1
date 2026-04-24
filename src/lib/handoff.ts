@@ -288,10 +288,18 @@ export async function closeBridge(leadId: string) {
   // trancado em corretor que deu /fim (que pode ter saído da empresa
   // depois). Se re-esquentar, Bia re-escala (preferindo o mesmo agent
   // via continuidade, mas caindo pra rotação se ele não responder em 5min).
+  //
+  // Reset `handoff_attempts=0`: contador é por CICLO de handoff, não pela
+  // vida do lead. Se a bridge fechou, o ciclo terminou e o próximo
+  // handoff deve poder usar todas as N tentativas de novo. Sem isso,
+  // leads longevos batem em handoff_max_attempts logo no primeiro retry
+  // de qualquer ciclo futuro e caem em handoff_stuck. A guarda contra
+  // loop continua valendo dentro de UM ciclo (initiate→escalate→...).
   await updateLead(leadId, {
     bridge_active: false,
     bridge_closed_at: new Date().toISOString(),
     human_takeover: false,
+    handoff_attempts: 0,
   } as Record<string, unknown>);
 }
 
